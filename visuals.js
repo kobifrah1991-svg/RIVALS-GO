@@ -231,6 +231,55 @@ export function buildArena(scene, boxes, { shadows }) {
       scene.add(strip);
     }
   }
+  for (const r of boxes.ramps || []) scene.add(buildRamp(r, shadows));
+  for (const d of boxes.pads || []) scene.add(buildPad(d));
+}
+
+// Ramp: a solid wedge (triangle extruded across its width) with a neon edge along the top
+function buildRamp(r, shadows) {
+  const along = r.axis === 'x' ? 0 : 2, across = along === 0 ? 2 : 0;
+  const L = r.max[along] - r.min[along], W = r.max[across] - r.min[across], H = r.max[1] - r.min[1];
+  const shape = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(L, 0), new THREE.Vector2(L, H)]);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: W, bevelEnabled: false });
+  const g = new THREE.Group();
+  const mesh = new THREE.Mesh(geo, boxMaterial({ color: 0x51438f }));
+  mesh.castShadow = mesh.receiveShadow = shadows;
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(L, H), 0.06, 0.06), new THREE.MeshBasicMaterial({ color: 0x00e5ff }));
+  edge.position.set(L / 2, H / 2 + 0.03, 0.03); edge.rotation.z = Math.atan2(H, L);
+  const edge2 = edge.clone(); edge2.position.z = W - 0.03;
+  g.add(mesh, edge, edge2);
+  // Local frame: rises along +x, width along +z. Turn it to the ramp's axis and direction.
+  if (along === 0 && r.up > 0) g.position.set(r.min[0], r.min[1], r.min[2]);
+  if (along === 0 && r.up < 0) { g.rotation.y = Math.PI; g.position.set(r.max[0], r.min[1], r.max[2]); }
+  if (along === 2 && r.up > 0) { g.rotation.y = -Math.PI / 2; g.position.set(r.max[0], r.min[1], r.min[2]); }
+  if (along === 2 && r.up < 0) { g.rotation.y = Math.PI / 2; g.position.set(r.min[0], r.min[1], r.max[2]); }
+  return g;
+}
+
+// Jump pad: glowing disc with a pulsing ring and an up-arrow
+const pads = [];
+function buildPad(d) {
+  const g = new THREE.Group();
+  g.position.set(d.x, d.y, d.z);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(d.r, d.r * 1.1, 0.12, 32), new THREE.MeshStandardMaterial({ color: 0x1b2035, roughness: 0.4, metalness: 0.6 }));
+  base.position.y = 0.06;
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(d.r * 0.85, 32), new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.8 }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.125;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(d.r * 0.9, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.2;
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.45, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
+  arrow.position.y = 0.6;
+  g.add(base, disc, ring, arrow);
+  pads.push({ ring, arrow });
+  return g;
+}
+// Pads pulse: the ring rises and fades, the arrow bobs
+export function animateArena(t) {
+  for (const p of pads) {
+    const k = (t * 1.2) % 1;
+    p.ring.position.y = 0.2 + k * 1.6; p.ring.material.opacity = 1 - k; p.ring.scale.setScalar(1 - k * 0.3);
+    p.arrow.position.y = 0.6 + Math.sin(t * 4) * 0.12; p.arrow.rotation.y = t * 2;
+  }
 }
 
 // mode: 'day' (default) or 'night'
