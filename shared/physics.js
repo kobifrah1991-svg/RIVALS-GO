@@ -13,7 +13,7 @@ export const PLAYER = {
   slideBoost: 1.45, // crouch while running: a short slide that keeps momentum
   slideTime: 0.7,
   stepUp: 0.46,
-  maxHp: 100,
+  maxHp: 175,      // tougher than before: ~8 rifle body hits, 5 to the head; a backstab still kills
 };
 
 // Stances: 0 standing, 1 crouching, 2 prone. Height, eye level, head hitbox and speed for each.

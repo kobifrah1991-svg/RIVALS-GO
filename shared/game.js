@@ -251,7 +251,7 @@ export function createGame(opts = {}) {
     killer.kills++; killer.streak++;
     if (head) killer.heads++;
     // Kill reward: heal a little so aggressive play feels good
-    if (killer.alive) killer.hp = Math.min(PLAYER.maxHp, killer.hp + 25);
+    if (killer.alive) killer.hp = Math.min(PLAYER.maxHp, killer.hp + 40);
     const streakName = STREAKS[killer.streak] || null;
     if (M.teams && killer.team) teamScore[killer.team]++;
     broadcast({ t: 'kill', killer: killer.id, victim: victim.id, w: wKey, head, backstab, streak: killer.streak, streakName, pos: victim.p });
@@ -562,7 +562,7 @@ export function createGame(opts = {}) {
       }
       if (p.bot) botThink(p, dt);
       // Health regen after 5 s out of combat
-      if (now - p.lastHurt > 5000 && p.hp < PLAYER.maxHp) p.hp = Math.min(PLAYER.maxHp, p.hp + 20 * dt);
+      if (now - p.lastHurt > 5000 && p.hp < PLAYER.maxHp) p.hp = Math.min(PLAYER.maxHp, p.hp + 30 * dt);
       p.history.push({ t: now, p: [p.p[0], p.p[1], p.p[2]] });
       while (p.history.length && now - p.history[0].t > 1000) p.history.shift();
     }

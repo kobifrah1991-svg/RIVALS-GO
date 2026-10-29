@@ -110,7 +110,7 @@ function vibrate(ms) { if (store.get('vibrate', true) && navigator.vibrate) navi
 // ======================= game state =======================
 const me = {
   id: null, color: 0xffffff, p: [0, 0, 0], v: [0, 0, 0], onGround: true, yaw: 0, pitch: 0,
-  alive: false, hp: 100, weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: 0, ads: false,
+  alive: false, hp: PLAYER.maxHp, weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: 0, ads: false,
   kills: 0, deaths: 0, heads: 0, streak: 0,
   stance: 0, eyeH: PLAYER.eye, // 0 standing, 1 crouching, 2 prone; eyeH eases toward the stance's eye height
 };
@@ -405,8 +405,8 @@ function updateWeaponHud() {
 function updateHp(hp) {
   me.hp = hp;
   $('hp-text').textContent = Math.ceil(hp);
-  $('hp-fill').style.width = Math.max(0, hp) + '%';
-  $('hp-fill').classList.toggle('low', hp < 35);
+  $('hp-fill').style.width = Math.max(0, hp / PLAYER.maxHp * 100) + '%';
+  $('hp-fill').classList.toggle('low', hp < PLAYER.maxHp * 0.35);
 }
 function updateScoreboard() {
   const sorted = [...roster].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
@@ -837,7 +837,7 @@ function onMessage(m) {
       me.p = m.p.slice(); me.v = [0, 0, 0]; me.yaw = m.yaw; me.pitch = 0;
       me.alive = true; me.streak = 0; me.reloadUntil = 0; me.stance = 0; me.eyeH = PLAYER.eye; updateStanceHud();
       Object.assign(me.ammo, m.ammo);
-      updateHp(100);
+      updateHp(PLAYER.maxHp);
       $('death').classList.add('hidden');
       $('streak').textContent = '';
       switchWeapon(me.weapon); for (const g in viewGuns) viewGuns[g].visible = g === me.weapon;
@@ -867,7 +867,7 @@ function onMessage(m) {
       sfx.hurt();
       vibrate(40);
       shake = Math.min(0.8, shake + 0.3);
-      const v = $('vignette'); v.style.transition = 'none'; v.style.opacity = 1; void v.offsetWidth; v.style.transition = ''; v.style.opacity = me.hp < 35 ? 0.5 : 0;
+      const v = $('vignette'); v.style.transition = 'none'; v.style.opacity = 1; void v.offsetWidth; v.style.transition = ''; v.style.opacity = me.hp < PLAYER.maxHp * 0.35 ? 0.5 : 0;
       showDamageDir(m.from);
       break;
     }
@@ -1086,35 +1086,81 @@ document.addEventListener('keyup', (e) => {
 });
 addEventListener('blur', () => { keys.clear(); mouseDown = false; setTalking(false); });
 
+// ---- gyro aiming (phones) ----
+// Turning the phone turns the view: the gyroscope's rotation rate is added to yaw / pitch, mapped to
+// how the screen is held (portrait or either landscape side). Toggle and sensitivity in Settings.
+const gyro = {
+  on: store.get('gyro', true), sens: store.get('gyroSens', 1), asked: false,
+  ask() { // iOS needs a permission prompt from a user gesture; Android just sends events
+    if (this.asked || !isTouch) return;
+    this.asked = true;
+    const req = window.DeviceMotionEvent?.requestPermission;
+    if (typeof req === 'function') req.call(DeviceMotionEvent).catch(() => {});
+  },
+};
+addEventListener('devicemotion', (e) => {
+  const r = e.rotationRate;
+  if (!gyro.on || !r || !me.alive || chatOpen || !me.id || matchInfo.state !== 'playing') return;
+  const dt = Math.min(0.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || 0.016);
+  const ang = (screen.orientation?.angle ?? window.orientation ?? 0) % 360;
+  const a = r.alpha || 0, b = r.beta || 0, g = r.gamma || 0; // deg/s around the device's z, x, y axes
+  let yawRate, pitchRate;
+  if (ang === 90) { yawRate = b; pitchRate = -g; }        // landscape, top of the phone to the left
+  else if (ang === 270 || ang === -90) { yawRate = -b; pitchRate = g; }
+  else { yawRate = g; pitchRate = b; }                    // portrait
+  void a;
+  const k = (Math.PI / 180) * dt * gyro.sens * (me.ads ? camera.fov / 78 : 1);
+  me.yaw += yawRate * k;
+  me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch + pitchRate * k));
+});
+
 // ---- touch ----
 function setupTouch() {
   const stick = $('stick'), knob = $('stick-knob');
-  let stickId = null, lookId = null, lx = 0, ly = 0;
-  stick.addEventListener('touchstart', (e) => { e.preventDefault(); stickId = e.changedTouches[0].identifier; });
+  let stickId = null, lookId = null, lx = 0, ly = 0, sx = 0, sy = 0;
+  // Floating joystick: wherever the left thumb lands (left 40% of the screen) becomes its centre
+  const R = 62; // max knob travel in px
+  const placeStick = (x, y) => {
+    sx = x; sy = y;
+    stick.style.left = (x - stick.offsetWidth / 2) + 'px';
+    stick.style.top = (y - stick.offsetHeight / 2) + 'px';
+    stick.style.bottom = 'auto';
+    stick.classList.add('active');
+  };
+  const resetStick = () => { stick.style.left = ''; stick.style.top = ''; stick.style.bottom = ''; stick.classList.remove('active'); knob.style.transform = ''; };
+  const moveStick = (x, y) => {
+    let dx = x - sx, dy = y - sy;
+    const l = Math.hypot(dx, dy);
+    if (l > R) { dx *= R / l; dy *= R / l; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    // Small dead zone, then a gentle curve: fine control near the centre, full speed at the edge
+    const m = Math.min(1, l / R), k = m < 0.12 ? 0 : Math.pow((m - 0.12) / 0.88, 1.4) / Math.max(m, 1e-6);
+    touchMove.s = (dx / R) * k; touchMove.f = (-dy / R) * k;
+  };
+  stick.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.changedTouches[0]; stickId = t.identifier; placeStick(t.clientX, t.clientY); });
   addEventListener('touchmove', (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === stickId) {
-        const r = stick.getBoundingClientRect();
-        let dx = t.clientX - (r.left + r.width / 2), dy = t.clientY - (r.top + r.height / 2);
-        const l = Math.hypot(dx, dy), max = r.width / 2;
-        if (l > max) { dx *= max / l; dy *= max / l; }
-        knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        touchMove.s = dx / max; touchMove.f = -dy / max;
-      } else if (t.identifier === lookId) {
-        const k = 0.005 * sens * (me.ads ? camera.fov / 78 : 1);
-        me.yaw -= (t.clientX - lx) * k;
-        me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch - (t.clientY - ly) * k));
+      if (t.identifier === stickId) moveStick(t.clientX, t.clientY);
+      else if (t.identifier === lookId) {
+        // Finger look with a little acceleration: slow drags for precision, quick swipes turn fast
+        const dx = t.clientX - lx, dy = t.clientY - ly, speed = Math.hypot(dx, dy);
+        const k = 0.0045 * sens * (1 + Math.min(1.2, speed / 40)) * (me.ads ? camera.fov / 78 : 1);
+        me.yaw -= dx * k;
+        me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch - dy * k));
         lx = t.clientX; ly = t.clientY;
       }
     }
   }, { passive: false });
   canvas.addEventListener('touchstart', (e) => {
-    initAudio();
-    for (const t of e.changedTouches) if (lookId === null && t.clientX > innerWidth * 0.35) { lookId = t.identifier; lx = t.clientX; ly = t.clientY; }
+    initAudio(); gyro.ask();
+    for (const t of e.changedTouches) {
+      if (stickId === null && t.clientX < innerWidth * 0.4 && t.clientY > innerHeight * 0.3) { stickId = t.identifier; placeStick(t.clientX, t.clientY); moveStick(t.clientX, t.clientY); }
+      else if (lookId === null && t.clientX > innerWidth * 0.35) { lookId = t.identifier; lx = t.clientX; ly = t.clientY; }
+    }
   });
   const end = (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === stickId) { stickId = null; touchMove.f = touchMove.s = 0; knob.style.transform = ''; }
+      if (t.identifier === stickId) { stickId = null; touchMove.f = touchMove.s = 0; resetStick(); }
       if (t.identifier === lookId) lookId = null;
     }
   };
@@ -1313,6 +1359,10 @@ for (const sel of document.querySelectorAll('.lang-select')) {
 $('name').value = store.get('name', '');
 $('sens').value = sens;
 $('sens').addEventListener('input', (e) => { sens = Number(e.target.value); store.set('sens', sens); });
+$('gyro-on').checked = gyro.on;
+$('gyro-on').addEventListener('change', (e) => { gyro.on = e.target.checked; store.set('gyro', gyro.on); if (gyro.on) gyro.ask(); });
+$('gyro-sens').value = gyro.sens;
+$('gyro-sens').addEventListener('input', (e) => { gyro.sens = Number(e.target.value); store.set('gyroSens', gyro.sens); });
 $('time').value = store.get('time', 'day');
 $('time').addEventListener('change', (e) => { store.set('time', e.target.value); location.reload(); });
 showProfile();
