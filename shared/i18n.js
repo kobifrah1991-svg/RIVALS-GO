@@ -50,6 +50,8 @@ const S = {
   'srv.cloudRegion': { he: 'שרת ענן · ניקוד וכסף נשמרים', en: 'Cloud server · score and credits are saved', ru: 'Облачный сервер · очки и кредиты сохраняются', ar: 'خادم سحابي · يتم حفظ النقاط والرصيد' },
   'menu.gyro': { he: 'כיוון עם תנועת הטלפון (ג\'ירו)', en: 'Aim by moving the phone (gyro)', ru: 'Прицел движением телефона (гироскоп)', ar: 'التصويب بتحريك الهاتف (جيروسكوب)' },
   'menu.gyroSens': { he: 'רגישות ג\'ירו', en: 'Gyro sensitivity', ru: 'Чувствительность гироскопа', ar: 'حساسية الجيروسكوب' },
+  'menu.createdBy': { he: 'נוצר על ידי קובי יפרח', en: 'Created by {name}', ru: 'Автор: {name}', ar: 'من إنشاء {name}' },
+  'hud.freeMouse': { he: 'החלון הזה לא מאפשר נעילת עכבר: מכוונים בהזזת הסמן, החזקה בקצה המסך ממשיכה לסובב, J/L לסיבוב ו-I/K למעלה ולמטה.', en: 'This window does not allow mouse lock: aim by moving the cursor, hold it at the screen edge to keep turning, J/L to turn and I/K to look up and down.', ru: 'Это окно не разрешает захват мыши: целься движением курсора, держи его у края экрана для поворота, J/L — поворот, I/K — вверх и вниз.', ar: 'هذه النافذة لا تسمح بقفل الفأرة: صوّب بتحريك المؤشر، أبقه عند حافة الشاشة لمواصلة الدوران، J/L للدوران و I/K للأعلى والأسفل.' },
   'menu.tabPlay': { he: 'שחק עכשיו', en: 'Play now', ru: 'Играть', ar: 'العب الآن' },
   'menu.tabFriends': { he: 'עם חברים', en: 'With friends', ru: 'С друзьями', ar: 'مع الأصدقاء' },
   'menu.tabServers': { he: 'שרתים', en: 'Servers', ru: 'Серверы', ar: 'الخوادم' },
@@ -198,7 +200,7 @@ const S = {
   'hud.headshot': { he: ' · ירייה בראש! 🎯', en: ' · Headshot! 🎯', ru: ' · В голову! 🎯', ar: ' · في الرأس! 🎯' },
   'hud.streak': { he: '🔥 רצף {n}', en: '🔥 Streak {n}', ru: '🔥 Серия {n}', ar: '🔥 سلسلة {n}' },
   'hud.pause': { he: 'לחצו כדי להמשיך', en: 'Click to continue', ru: 'Нажмите, чтобы продолжить', ar: 'انقر للمتابعة' },
-  'hud.pauseKeys': { he: 'WASD תנועה · רווח קפיצה · עכבר ירי/כוונת · 1-4 נשקים · R טעינה · Tab ניקוד · Enter צ\'אט · B הודעות מהירות', en: 'WASD move · Space jump · Mouse fire/aim · 1-4 weapons · R reload · Tab scores · Enter chat · B quick messages', ru: 'WASD — движение · Пробел — прыжок · Мышь — огонь/прицел · 1-4 — оружие · R — перезарядка · Tab — счёт · Enter — чат · B — быстрые фразы', ar: 'WASD للحركة · المسافة للقفز · الفأرة للإطلاق/التصويب · 1-4 الأسلحة · R إعادة التعبئة · Tab النتائج · Enter الدردشة · B رسائل سريعة' },
+  'hud.pauseKeys': { he: 'WASD תנועה · רווח קפיצה · עכבר ירי/כוונת · 1-4 נשקים · R טעינה · Tab ניקוד · Enter צ\'אט · B הודעות מהירות · J/L/I/K מבט', en: 'WASD move · Space jump · Mouse fire/aim · 1-4 weapons · R reload · Tab scores · Enter chat · B quick messages', ru: 'WASD — движение · Пробел — прыжок · Мышь — огонь/прицел · 1-4 — оружие · R — перезарядка · Tab — счёт · Enter — чат · B — быстрые фразы', ar: 'WASD للحركة · المسافة للقفز · الفأرة للإطلاق/التصويب · 1-4 الأسلحة · R إعادة التعبئة · Tab النتائج · Enter الدردشة · B رسائل سريعة' },
   'hud.inviteFrom': { he: '{from} מזמין/ה אותך לחדר {code}', en: '{from} invites you to room {code}', ru: '{from} приглашает вас в комнату {code}', ar: '{from} يدعوك إلى الغرفة {code}' },
   'hud.notNow': { he: 'לא עכשיו', en: 'Not now', ru: 'Не сейчас', ar: 'ليس الآن' },
 

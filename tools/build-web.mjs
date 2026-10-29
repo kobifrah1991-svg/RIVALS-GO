@@ -35,6 +35,11 @@ html = html.replace('<script type="module" src="client.js"></script>', '<script>
 if (!html.includes('./vendor/three.module.js')) throw new Error('importmap not rewritten');
 fs.writeFileSync(path.join(OUT, 'index.html'), html);
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
+// Studio landing page (Scitedra Games) at <site>/studio/
+const page = fs.readFileSync(path.join(ROOT, 'studio', 'page.html'), 'utf8');
+fs.mkdirSync(path.join(OUT, 'studio'), { recursive: true });
+fs.writeFileSync(path.join(OUT, 'studio', 'index.html'), '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' + page.replace('</style>', '</style>\n</head>\n<body>') + '\n</body>\n</html>\n');
+copyDir(path.join(ROOT, 'studio', 'img'), path.join(OUT, 'studio', 'img'));
 
 let files = 0, bytes = 0;
 const count = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) count(p); else { files++; bytes += fs.statSync(p).size; } } };

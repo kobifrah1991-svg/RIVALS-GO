@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-29 (0.13.0)
+- Credit: "Created by Kobi Yifrach · Scitedra Games" on the start screen and pause screen, linking to the studio page.
+- Scitedra Games landing page (studio/, served at <site>/studio/ by GitHub Pages).
+- Free-mouse aiming when a window refuses pointer lock (claude.ai preview, some desktop apps): move the cursor to aim, hold it at the screen edge to keep turning, click to fire. J/L and I/K look keys in every mode.
+- Android: web links open in the phone's browser.
+
 ## 2026-10-29 (0.12.0)
 - Tougher players: 175 HP (rifle ~8 body hits / 5 headshots, pistol 6, sniper 3 / 2 to the head; backstab still kills). Faster regen after 5 s (30/s), +40 HP for a kill.
 - Phone controls: floating joystick (appears under the left thumb anywhere on the left side), dead zone and response curve, bigger stick; finger look with gentle acceleration.

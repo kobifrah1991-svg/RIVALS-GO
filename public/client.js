@@ -9,6 +9,7 @@ import { SHOP, SLOTS } from './shared/shop.js';
 import { P2PHostSocket, P2PGuestSocket, p2pErrorKey, validCode } from './p2p.js';
 import { createVoice } from './voice.js';
 import { ONLINE_SERVERS } from './shared/servers.js';
+import { BRAND } from './shared/brand.js';
 const gunModel = (key, scale, camo) => buildGun(key, WEAPONS[key].color, scale, camo);
 
 const $ = (id) => document.getElementById(id);
@@ -1033,25 +1034,46 @@ function showProfile() {
 }
 
 // ======================= input =======================
+// Some hosts (embedded frames such as the claude.ai preview, some desktop apps) refuse pointer lock.
+// Then the game switches to free-mouse aiming: the visible cursor's movement turns the view, holding it
+// near the left/right edge keeps turning, and clicks fire. J/L and I/K also turn and look in any mode.
+let freeMouse = false, cursorX = 0.5;
+function enterFreeMouse() {
+  if (freeMouse || isTouch) return;
+  freeMouse = true;
+  document.body.classList.add('free-mouse');
+  $('pause').classList.add('hidden');
+  if (me.id) addChat({ sys: true, key: 'hud.freeMouse' });
+}
+document.addEventListener('pointerlockerror', enterFreeMouse);
 function lockPointer() {
-  if (!isTouch && me.id && !chatOpen && matchInfo.state === 'playing') canvas.requestPointerLock?.();
+  if (isTouch || freeMouse || !me.id || chatOpen || matchInfo.state !== 'playing') return;
+  try {
+    const r = canvas.requestPointerLock?.();
+    if (r && r.catch) r.catch(enterFreeMouse);
+  } catch { enterFreeMouse(); }
+  if (!canvas.requestPointerLock) enterFreeMouse();
+  // No lock and no error after a moment (silently ignored): fall back too
+  setTimeout(() => { if (document.pointerLockElement !== canvas && me.id && !chatOpen && matchInfo.state === 'playing' && document.hasFocus()) enterFreeMouse(); }, 700);
 }
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
-  $('pause').classList.toggle('hidden', locked || chatOpen || !me.id || matchInfo.state !== 'playing' || isTouch || !$('admin-panel').classList.contains('hidden'));
+  $('pause').classList.toggle('hidden', locked || freeMouse || chatOpen || !me.id || matchInfo.state !== 'playing' || isTouch || !$('admin-panel').classList.contains('hidden'));
   if (!locked) { mouseDown = false; me.ads = false; }
 });
 $('pause').addEventListener('click', () => { initAudio(); lockPointer(); });
 canvas.addEventListener('click', () => { if (!isTouch) lockPointer(); });
 
 document.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== canvas) return;
+  cursorX = e.clientX / innerWidth;
+  const aiming = document.pointerLockElement === canvas || (freeMouse && me.id && !chatOpen && e.target === canvas);
+  if (!aiming) return;
   const k = 0.0022 * sens * (me.ads ? camera.fov / 78 : 1);
   me.yaw -= e.movementX * k;
   me.pitch = Math.max(-1.5, Math.min(1.5, me.pitch - e.movementY * k));
 });
 document.addEventListener('mousedown', (e) => {
-  if (document.pointerLockElement !== canvas) return;
+  if (document.pointerLockElement !== canvas && !(freeMouse && e.target === canvas)) return;
   if (e.button === 0) mouseDown = true;
   if (e.button === 2) me.ads = true;
 });
@@ -1060,7 +1082,7 @@ document.addEventListener('mouseup', (e) => {
   if (e.button === 2) me.ads = false;
 });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
-document.addEventListener('wheel', (e) => { if (document.pointerLockElement === canvas) cycleWeapon(e.deltaY > 0 ? 1 : -1); });
+document.addEventListener('wheel', (e) => { if (document.pointerLockElement === canvas || (freeMouse && e.target === canvas)) cycleWeapon(e.deltaY > 0 ? 1 : -1); });
 
 document.addEventListener('keydown', (e) => {
   if (!me.id || chatOpen) return;
@@ -1332,6 +1354,7 @@ $('admin-confirm').querySelector('input').addEventListener('keydown', (e) => e.s
 // Applies the chosen language to static text (data-i18n attributes), direction and dynamic UI.
 // Works mid-game: nothing is sent to the server, so the connection is untouched.
 function applyLang(lang) {
+  document.querySelectorAll('.credit').forEach((a) => { a.href = BRAND.site; a.innerHTML = ''; const b = document.createElement('b'); b.textContent = BRAND.studio; a.append(t('menu.createdBy', { name: BRAND.creator }) + ' · ', b, ' ↗'); });
   setLang(lang);
   store.set('lang', getLang());
   document.documentElement.lang = getLang();
@@ -1646,6 +1669,18 @@ function frame(now) {
       if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
     }
     f += touchMove.f; s += touchMove.s;
+    // Keyboard look (J/L turn, I/K look up/down) and free-mouse edge turning
+    const turn = 2.4 * sens * dt;
+    if (!chatOpen) {
+      if (keys.has('KeyJ')) me.yaw += turn;
+      if (keys.has('KeyL')) me.yaw -= turn;
+      if (keys.has('KeyI')) me.pitch = Math.min(1.5, me.pitch + turn * 0.7);
+      if (keys.has('KeyK')) me.pitch = Math.max(-1.5, me.pitch - turn * 0.7);
+    }
+    if (freeMouse && !chatOpen) {
+      if (cursorX < 0.08) me.yaw += turn * (1 - cursorX / 0.08) * 1.5;
+      else if (cursorX > 0.92) me.yaw -= turn * ((cursorX - 0.92) / 0.08) * 1.5;
+    }
     // Jump from crouch or prone stands up first (if there is room)
     if ((keys.has('Space') || wantJump) && me.stance) { setStance(0); keys.delete('Space'); wantJump = false; }
     step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads, slide: wantSlide }, dt, MAP.boxes);

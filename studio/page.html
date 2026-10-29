@@ -1,0 +1,233 @@
+<title>Scitedra Games</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Scitedra Games, the studio of Kobi Yifrach. Arena Rush: a fast first-person arena shooter for browser, Android and Windows.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a studio "case file" — wordmark bar, the game shown through a framed viewfinder (HUD corner ticks),
+   then short spec-led sections; one deliberate single dark theme that matches the game's arena at night */
+:root {
+  --ink: #0c0e22;        /* page ground: the arena's night-blue */
+  --panel: #14173a;      /* raised surfaces */
+  --line: #2a2f5e;       /* hairlines */
+  --text: #eef0ff;
+  --muted: #a3a9d6;
+  --pink: #ff3d8f;       /* the game's two neons, used sparingly */
+  --cyan: #2fe3ff;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--ink); }
+body { background: var(--ink); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* top bar */
+.bar { border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
+.mark { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.mark svg { flex: none; }
+.mark b { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: .18em; text-transform: uppercase; }
+.mark span { color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: .08em; }
+.bar nav { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+.bar nav a { text-decoration: none; }
+.bar nav a:hover { color: var(--text); }
+
+/* hero */
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; padding-block: 56px 40px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); margin: 0 0 14px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(48px, 7.4vw, 92px); line-height: .92; letter-spacing: -.01em; margin: 0; text-wrap: balance; text-transform: uppercase; }
+h1 em { font-style: normal; color: var(--pink); }
+.lede { font-size: 18px; color: var(--muted); max-width: 34em; margin: 20px 0 28px; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 20px; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 15px; border: 1px solid var(--line); }
+.btn.primary { background: var(--pink); border-color: var(--pink); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost:hover { border-color: var(--cyan); }
+.soon { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1px dashed var(--line); padding: 10px 14px; border-radius: 10px; letter-spacing: .04em; }
+
+/* the viewfinder: screenshot framed with HUD corner ticks */
+.finder { position: relative; padding: 14px; }
+.finder img { display: block; width: 100%; height: auto; border-radius: 6px; max-width: 100%; }
+.finder::before, .finder::after, .finder i::before, .finder i::after { content: ""; position: absolute; width: 26px; height: 26px; border: 2px solid var(--cyan); }
+.finder::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.finder::after { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.finder i::before { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.finder i::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.finder figcaption { position: absolute; left: 28px; bottom: 26px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; background: rgba(12,14,34,.78); color: var(--text); padding: 4px 8px; border-radius: 4px; }
+
+/* spec strip: the real numbers from the game's balance files */
+.specs { border-block: 1px solid var(--line); background: var(--panel); }
+.specs dl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; }
+.specs div { padding: 18px 16px; border-left: 1px solid var(--line); }
+.specs div:first-child { border-left: 0; }
+.specs dt { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.specs dd { margin: 4px 0 0; font-family: var(--display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; }
+.specs dd small { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+/* feature sections */
+section.feat .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; padding-block: 64px; }
+section.feat.flip .copy { order: 2; }
+h2 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 3.6vw, 40px); line-height: 1.05; margin: 0 0 14px; text-transform: uppercase; text-wrap: balance; }
+.copy p { color: var(--muted); max-width: 32em; margin: 0 0 18px; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.list li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 15px; }
+.list b { font-family: var(--mono); font-weight: 500; font-size: 13px; color: var(--cyan); letter-spacing: .03em; }
+.shot { border-radius: 8px; border: 1px solid var(--line); display: block; width: 100%; height: auto; max-width: 100%; }
+
+/* platforms */
+.platforms { padding-block: 56px; border-top: 1px solid var(--line); }
+.plat { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.plat a, .plat div { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; background: var(--panel); }
+.plat a:hover { border-color: var(--cyan); }
+.plat b { font-family: var(--display); font-size: 20px; }
+.state { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; }
+.state.on { color: var(--cyan); }
+.state.off { color: var(--muted); }
+.plat span:last-child { color: var(--muted); font-size: 14px; }
+
+/* studio + credits */
+.studio { padding-block: 56px; border-top: 1px solid var(--line); }
+.studio .wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; }
+.creator { font-family: var(--display); font-size: 30px; font-weight: 700; margin: 6px 0 10px; }
+.studio p { color: var(--muted); margin: 0 0 12px; max-width: 34em; }
+.credits { font-size: 14px; display: grid; gap: 8px; margin: 0; }
+.credits div { display: grid; grid-template-columns: 9em minmax(0, 1fr); gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.credits dt { color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: .04em; }
+.credits dd { margin: 0; }
+footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-block: 22px; }
+
+@media (max-width: 860px) {
+  .hero .wrap, section.feat .wrap, .studio .wrap { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  section.feat.flip .copy { order: 0; }
+  .specs dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .specs div:nth-child(4) { border-left: 0; }
+  .specs div:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .plat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bar nav { display: none; }
+}
+@media (max-width: 420px) {
+  .specs dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .specs div:nth-child(odd) { border-left: 0; }
+  .specs div:nth-child(4) { border-left: 1px solid var(--line); }
+  .specs div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .list li, .credits div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .finder img { animation: rise .7s ease-out both; }
+  @keyframes rise { from { transform: translateY(10px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="mark" href="#top" aria-label="Scitedra Games">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="8" fill="none" stroke="#2fe3ff" stroke-width="2"/><path d="M23 11.5c-1.4-1.6-3.6-2.5-6-2.5-3.6 0-6 1.9-6 4.6 0 6 12.4 3.2 12.4 8.9 0 2.8-2.6 4.5-6.4 4.5-2.6 0-4.9-.9-6.6-2.6" fill="none" stroke="#ff3d8f" stroke-width="2.6" stroke-linecap="round"/></svg>
+      <span><b>Scitedra Games</b><br><span>independent game studio</span></span>
+    </a>
+    <nav aria-label="Sections"><a href="#arena-rush">Arena Rush</a><a href="#platforms">Platforms</a><a href="#studio">Studio</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" id="arena-rush">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Scitedra Games · first title</p>
+        <h1>Arena <em>Rush</em></h1>
+        <p class="lede">A fast first-person arena shooter. Slide, climb and launch across a neon warehouse, pick one of twelve fighters, and outplay your friends online or a squad of bots offline.</p>
+        <div class="ctas">
+          <a class="btn primary" href="https://kobifrah1991-svg.github.io/RIVALS-GO/" target="_blank" rel="noopener">Play in browser</a>
+          <a class="btn ghost" href="https://github.com/kobifrah1991-svg/RIVALS-GO/raw/main/android/ArenaRush.apk" target="_blank" rel="noopener">Android APK</a>
+          <span class="soon">Steam · coming soon</span>
+        </div>
+      </div>
+      <figure class="finder"><i></i><img src="img/hero.jpg" alt="First-person view in Arena Rush: an AK-style rifle, glowing tracers crossing the warehouse arena, crates and a ramp up to a tower" width="1400" height="788"><figcaption>In-game · v0.12</figcaption></figure>
+    </div>
+  </section>
+
+  <div class="specs">
+    <div class="wrap">
+      <dl>
+        <div><dt>Fighters</dt><dd>12</dd></div>
+        <div><dt>Weapons</dt><dd>5</dd></div>
+        <div><dt>Health</dt><dd>175 <small>HP</small></dd></div>
+        <div><dt>Run speed</dt><dd>9 <small>m/s</small></dd></div>
+        <div><dt>Per room</dt><dd>12 <small>players</small></dd></div>
+        <div><dt>Languages</dt><dd>4 <small>EN HE RU AR</small></dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <section class="feat">
+    <div class="wrap">
+      <div class="copy">
+        <p class="eyebrow">Movement first</p>
+        <h2>Every surface is a route</h2>
+        <p>Fights are won by getting somewhere first. Momentum carries through slides and jumps, and the arena is built in layers you can reach in seconds.</p>
+        <ul class="list">
+          <li><b>Slide</b><span>Crouch at a run to slide 45% faster for 0.7 s.</span></li>
+          <li><b>Climb</b><span>Jump into any ledge up to 2.4 m and pull yourself up.</span></li>
+          <li><b>Jump pads</b><span>Six pads launch you about 6 m, onto towers and catwalks.</span></li>
+          <li><b>Stances</b><span>Crouch or go prone for a smaller hitbox and a steadier aim.</span></li>
+        </ul>
+      </div>
+      <img class="shot" src="img/stances.jpg" alt="Three fighters showing the standing, crouching and prone stances, each aiming a rifle" width="1100" height="642" loading="lazy">
+    </div>
+  </section>
+
+  <section class="feat flip">
+    <div class="wrap">
+      <div class="copy">
+        <p class="eyebrow">Twelve fighters</p>
+        <h2>Soldiers and civilians, side by side</h2>
+        <p>Four soldiers, four civilian women and four civilian men, each a fully animated character with a real two-handed grip: trigger finger on the trigger, support hand on the handguard or pump.</p>
+        <ul class="list">
+          <li><b>Soldiers</b><span>Marcus, Diego, Sarah, Gabriela</span></li>
+          <li><b>Civilians</b><span>Mei, Noa, Shira, Emma, Andre, Leo, Eli, Daniel</span></li>
+          <li><b>Weapons</b><span>Assault rifle, pump shotgun, bolt-action sniper, pistol, machete</span></li>
+        </ul>
+      </div>
+      <img class="shot" src="img/characters.jpg" alt="Arena Rush start screen with the character picker: twelve fighters in a four-by-three grid" width="1200" height="675" loading="lazy">
+    </div>
+  </section>
+
+  <section class="platforms" id="platforms">
+    <div class="wrap">
+      <p class="eyebrow">Where to play</p>
+      <h2>One game, every screen</h2>
+      <div class="plat">
+        <a href="https://kobifrah1991-svg.github.io/RIVALS-GO/" target="_blank" rel="noopener"><span class="state on">Available</span><b>Browser</b><span>Desktop and mobile, no install</span></a>
+        <a href="https://github.com/kobifrah1991-svg/RIVALS-GO/raw/main/android/ArenaRush.apk" target="_blank" rel="noopener"><span class="state on">Available</span><b>Android</b><span>APK with touch stick and gyro aim</span></a>
+        <div><span class="state off">Build ready</span><b>Windows</b><span>Desktop app, full screen</span></div>
+        <div><span class="state off">Planned</span><b>Steam</b><span>Store page coming soon</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="studio" id="studio">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">The studio</p>
+        <p class="creator">Created by Kobi Yifrach</p>
+        <p>Scitedra Games is the independent studio of Kobi Yifrach. Arena Rush is its first game: designed, built and tested in-house, with friend rooms, push-to-talk voice and filtered chat so it stays fun for everyone.</p>
+      </div>
+      <dl class="credits" aria-label="Credits">
+        <div><dt>Game &amp; design</dt><dd>Kobi Yifrach · Scitedra Games</dd></div>
+        <div><dt>Characters</dt><dd>Microsoft Rocketbox Avatar Library (MIT)</dd></div>
+        <div><dt>Weapons</dt><dd>OpenGameArt, Poly Haven, 3D Model Haven (CC0)</dd></div>
+        <div><dt>Engine</dt><dd>three.js (MIT)</dd></div>
+        <div><dt>Friend rooms</dt><dd>PeerJS (MIT)</dd></div>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><span>© 2026 Scitedra Games</span><span>Arena Rush · created by Kobi Yifrach</span></div>
+</footer>

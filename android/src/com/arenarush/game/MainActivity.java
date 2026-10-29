@@ -2,7 +2,9 @@ package com.arenarush.game;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -33,7 +35,17 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setAllowFileAccessFromFileURLs(true);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            // Web links (the studio page in the credit) open in the phone's browser, not inside the game
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) { /* no browser */ }
+                    return true;
+                }
+                return false;
+            }
+        });
         web.setWebChromeClient(new WebChromeClient() {
             // Push-to-talk: the page asks for the microphone; grant it once Android allows RECORD_AUDIO
             @Override
