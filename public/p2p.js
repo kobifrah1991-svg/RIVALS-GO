@@ -55,7 +55,7 @@ export class P2PHostSocket {
         if (e?.type !== 'unavailable-id' || attempt >= 3) throw e; // code taken: try another
       }
     }
-    this.match = createGame({ mode });
+    this.match = createGame({ mode, difficulty: window.localStorage?.getItem('arena.difficulty')?.replace(/"/g, '') || 'normal' });
     this.match.start();
     // The host's own client talks to the match in memory, like offline practice
     const toClient = { readyState: 1, send: (s) => setTimeout(() => this.onmessage?.({ data: s }), 0), close() {} };

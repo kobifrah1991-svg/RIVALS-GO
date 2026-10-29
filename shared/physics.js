@@ -60,7 +60,7 @@ export const canStance = (p, to, boxes) => !collides(p[0], p[1] + 0.01, p[2], bo
 export function step(state, input, dt, boxes) {
   const p = state.p, v = state.v;
   const st = stanceOf(state.stance), H = st.height;
-  const speed = (input.ads ? PLAYER.adsSpeed : PLAYER.speed) * st.speed;
+  const speed = (input.ads ? PLAYER.adsSpeed : PLAYER.speed) * st.speed * (input.boost || 1); // boost: speed pickup
   let f = input.f || 0, s = input.s || 0;
   const len = Math.hypot(f, s);
   if (len > 1) { f /= len; s /= len; }

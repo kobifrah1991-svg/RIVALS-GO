@@ -24,6 +24,9 @@ import m19 from '../public/models/weapons/pistol.glb';
 import m20 from '../public/models/weapons/rifle.glb';
 import m21 from '../public/models/weapons/shotgun.glb';
 import m22 from '../public/models/weapons/sniper.glb';
+import m23 from '../public/models/weapons/m4.glb';
+import m24 from '../public/models/weapons/smg.glb';
+import m25 from '../public/models/weapons/rpg.glb';
 
 window.ARENA_OFFLINE = true; // no game server of its own: practice, friend rooms and the online servers in shared/servers.js
 window.ARENA_MODELS = {
@@ -50,5 +53,8 @@ window.ARENA_MODELS = {
   'weapons/rifle.glb': m20,
   'weapons/shotgun.glb': m21,
   'weapons/sniper.glb': m22,
+  'weapons/m4.glb': m23,
+  'weapons/smg.glb': m24,
+  'weapons/rpg.glb': m25,
 };
 import('../public/client.js');

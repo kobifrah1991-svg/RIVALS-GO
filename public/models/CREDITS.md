@@ -22,8 +22,11 @@ All third-party models below allow use in a commercial game. Keep this file with
 | `weapons/sniper.glb` | Bolt Action Rifle 7.62 | Mateusz Sadek (Poly Haven) | CC0 | https://polyhaven.com/a/bolt_action_rifle_7_62 |
 | `weapons/pistol.glb` | Service Pistol | Mateusz Sadek (Poly Haven) | CC0 | https://polyhaven.com/a/service_pistol |
 | `weapons/knife.glb` | Machete | Ulan Cabanilla (Poly Haven) | CC0 | https://polyhaven.com/a/machete |
+| `weapons/m4.glb` | ["M4A1"](https://sketchfab.com/3d-models/m4a1-33107f38b23c45cc8103768c0e961cdf) | [TORI106](https://sketchfab.com/TORI106) | [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/m4a1-33107f38b23c45cc8103768c0e961cdf |
+| `weapons/smg.glb` | Kriss Vector (without its suppressor), 3D Model Haven gun pack | Rajil Jose Macatangay | CC0 | https://archive.org/details/gun_models.7z |
+| `weapons/rpg.glb` | ["RPG-7"](https://sketchfab.com/3d-models/rpg-7-01c0fa7bb9e0439cac27264b3119a3fd) | [Tactical_Gamer](https://sketchfab.com/Tactical_Beard) | [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/rpg-7-01c0fa7bb9e0439cac27264b3119a3fd |
 
-The weapon GLBs were prepared (re-centred into weapon space, textures resized) by the mini-cry project (https://github.com/vvanghelue/mini-cry, `public/models/fp/`). The Rocketbox avatars were converted here from FBX with FBX2glTF; textures were downscaled to 1024 px JPEG (hair and eyelash cards: 512 px PNG with alpha); the walk and run clips have their horizontal root motion locked in the game code.
+The two CC-BY models (M4A1, RPG-7) were changed: rescaled, rotated, re-centred, textures resized and merged into one mesh per material. The weapon GLBs were prepared (re-centred into weapon space, textures resized) by the mini-cry project (https://github.com/vvanghelue/mini-cry, `public/models/fp/`). The Rocketbox avatars were converted here from FBX with FBX2glTF; textures were downscaled to 1024 px JPEG (hair and eyelash cards: 512 px PNG with alpha); the walk and run clips have their horizontal root motion locked in the game code.
 
 ## Code libraries shipped with the game
 

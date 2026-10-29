@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-29 (0.14.0)
+- More weapons: M4 (key 2) and SMG (key 3); bigger magazines (rifle 40, M4 36, SMG 45, shotgun 8, sniper 7, pistol 15).
+- Weapon switching on PC: Q or the mouse wheel = next weapon, X = back to the last weapon, 1-8 direct; weapon slots on the HUD are clickable.
+- Practice difficulty: Easy / Normal / Hard / Insane (bot reaction, aim, turn speed, damage and bot count).
+- Map pickups that respawn: heart (+75 HP), armor (+60, soaks damage before HP, max 100), speed boost (x1.3 for 15 s), power (x1.5 damage for 15 s), ammo refill, and an RPG on each tower top (4 rockets, 45 s, area blast).
+- HUD: armor bar, buff timers, pickup toasts.
+- Credits: M4A1 by TORI106 and RPG-7 by Tactical_Gamer (CC-BY 4.0, modified); Kriss Vector SMG (CC0).
+
 ## 2026-10-29 (0.13.0)
 - Credit: "Created by Kobi Yifrach · Scitedra Games" on the start screen and pause screen, linking to the studio page.
 - Scitedra Games landing page (studio/, served at <site>/studio/ by GitHub Pages).

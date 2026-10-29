@@ -1,7 +1,7 @@
 // Arena Rush match simulation: players, server-authoritative combat, bots and chat.
 // Runs inside the Node server (server.js, one instance per room) and, for offline practice, inside the browser.
 import { MAP } from './map.js';
-import { WEAPONS, WEAPON_ORDER, damageAt } from './weapons.js';
+import { WEAPONS, WEAPON_ORDER, LOADOUT, damageAt } from './weapons.js';
 import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles, collides, stanceOf, canStance } from './physics.js';
 import { filterChat, cleanName, QUICK_CHAT } from './chatfilter.js';
 import { CHARACTERS, characterById } from './characters.js';
@@ -19,7 +19,23 @@ const TEAM_COLORS = { A: 0x40c4ff, B: 0xff1744 };
 export function createGame(opts = {}) {
   const mode = MODES[opts.mode] ? opts.mode : 'ffa';
   const M = MODES[mode];
-  const config = { bots: M.teams ? 0 : (opts.bots ?? 4), mode }; // bots fill up to this many fighters
+  // Practice difficulty (bots): reaction time, aim error floor and how fast it tightens, turn speed,
+  // damage dealt, and how many fighters the bots fill up to
+  const DIFFICULTY = {
+    easy: { react: [900, 1500], aimMin: 0.12, aimTighten: 0.07, turn: 3, dmg: 0.55, bots: 3 },
+    normal: { react: [500, 1000], aimMin: 0.055, aimTighten: 0.15, turn: 6, dmg: 1, bots: 4 },
+    hard: { react: [280, 600], aimMin: 0.035, aimTighten: 0.24, turn: 8, dmg: 1.15, bots: 6 },
+    insane: { react: [140, 320], aimMin: 0.02, aimTighten: 0.35, turn: 11, dmg: 1.3, bots: 8 },
+  };
+  const difficulty = DIFFICULTY[opts.difficulty] ? opts.difficulty : 'normal';
+  const D = DIFFICULTY[difficulty];
+  const config = { bots: M.teams ? 0 : (opts.bots ?? D.bots), mode, difficulty }; // bots fill up to this many fighters
+  // Pickups on the map (MAP.pickups): heart, armor, speed, power, ammo, rpg. Taken ones come back after `respawn` s.
+  const PICKUP = {
+    heart: { respawn: 30 }, armor: { respawn: 35 }, speed: { respawn: 25 }, power: { respawn: 40 }, ammo: { respawn: 15 }, rpg: { respawn: 60 },
+  };
+  const BUFF = { heartHp: 75, armorAdd: 60, armorMax: 100, speedMs: 15000, speedMul: 1.3, powerMs: 15000, powerMul: 1.5 };
+  const items = (MAP.pickups || []).map((it, i) => ({ id: i, type: it.type, p: it.p, readyAt: 0 }));
   const TICK = 1 / 30;
   const SNAP_EVERY = 2;              // snapshots at 15 Hz
   const MAX_PLAYERS = M.teams ? M.perTeam * 2 : 12;
@@ -45,7 +61,7 @@ export function createGame(opts = {}) {
       color: COLORS.find((c) => !used.has(c)) ?? COLORS[nextId % COLORS.length],
       p: [0, 0, 0], v: [0, 0, 0], onGround: true, yaw: 0, pitch: 0,
       hp: PLAYER.maxHp, alive: false, respawnAt: Date.now() + 500, protectUntil: 0,
-      stance: 0, weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: {}, lastHurt: 0,
+      stance: 0, weapon: 'rifle', ammo: {}, armor: 0, speedUntil: 0, powerUntil: 0, special: null, reloadUntil: 0, lastShot: {}, lastHurt: 0,
       kills: 0, deaths: 0, streak: 0, heads: 0, team: null, ready: false,
       history: [], rtt: 80, lastState: Date.now(), chatTimes: [], strikes: 0, mutedUntil: 0,
       ai: bot ? { wp: null, stuck: 0, target: null, seenAt: 0, strafe: 1, strafeT: 0, jumpT: 0, aimErr: 0 } : null,
@@ -55,7 +71,7 @@ export function createGame(opts = {}) {
     return p;
   }
 
-  const refill = (p) => { for (const k of WEAPON_ORDER) p.ammo[k] = WEAPONS[k].mag; };
+  const refill = (p) => { for (const k of LOADOUT) p.ammo[k] = WEAPONS[k].mag; };
   const humans = () => [...players.values()].filter((p) => !p.bot);
   const send = (p, msg) => { if (p.ws && p.ws.readyState === 1) p.ws.send(JSON.stringify(msg)); };
   const broadcast = (msg, except) => { const s = JSON.stringify(msg); for (const p of players.values()) if (p !== except && p.ws && p.ws.readyState === 1) p.ws.send(s); };
@@ -123,10 +139,12 @@ export function createGame(opts = {}) {
     p.yaw = Math.atan2(s[0], s[2]); // face the centre
     p.pitch = 0;
     p.hp = PLAYER.maxHp; p.alive = true; p.streak = 0; p.stance = 0;
+    p.armor = 0; p.speedUntil = 0; p.powerUntil = 0; p.special = null; delete p.ammo.rpg;
     p.protectUntil = Date.now() + SPAWN_PROTECT * 1000;
     p.reloadUntil = 0; refill(p);
     p.history = [];
     send(p, { t: 'spawn', p: p.p, yaw: p.yaw, ammo: p.ammo });
+    sendBuffs(p);
   }
 
   // ---------- combat ----------
@@ -150,10 +168,13 @@ export function createGame(opts = {}) {
     if (!w || !shooter.alive || match.state !== 'playing') return;
     if (now < shooter.reloadUntil) return;
     if (now - (shooter.lastShot[wKey] || 0) < w.rate * 1000 * 0.85) return; // rate-of-fire check
-    if (shooter.ammo[wKey] <= 0) return;
+    if (w.pickupOnly && !(shooter.special?.w === wKey && now < shooter.special.until)) return; // RPG only while held
+    if (!(shooter.ammo[wKey] > 0)) return;
     if (!Array.isArray(dirs) || dirs.length < 1 || dirs.length > w.pellets) return;
     shooter.lastShot[wKey] = now;
     shooter.ammo[wKey]--;
+    if (w.pickupOnly && shooter.ammo[wKey] <= 0) { shooter.special = null; delete shooter.ammo[wKey]; sendBuffs(shooter); }
+    const power = now < shooter.powerUntil ? BUFF.powerMul : 1;
     shooter.weapon = wKey;
     shooter.protectUntil = 0; // firing ends spawn protection
 
@@ -186,13 +207,28 @@ export function createGame(opts = {}) {
       ends.push([o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best, hitT ? 1 : 0]);
       if (hitT) {
         const e = dmgBy.get(hitT) || { dmg: 0, head: false, at: null };
-        e.dmg += damageAt(w, best, head);
+        e.dmg += Math.round(damageAt(w, best, head) * power);
         e.head = e.head || head;
         e.at = ends[ends.length - 1].slice(0, 3);
         dmgBy.set(hitT, e);
       }
     }
     broadcast({ t: 'shot', id: shooter.id, w: wKey, o, ends }, shooter);
+    if (w.blast) {
+      // Rocket: explode where it hit; everyone (enemies) in the radius takes damage, less towards the edge
+      const at = ends[0];
+      broadcast({ t: 'boom', at: at.slice(0, 3) });
+      for (const t of players.values()) {
+        if (t === shooter || !t.alive || (M.teams && t.team === shooter.team)) continue;
+        const c = [t.p[0], t.p[1] + 0.9, t.p[2]];
+        const d = Math.hypot(c[0] - at[0], c[1] - at[1], c[2] - at[2]);
+        if (d > w.blast) continue;
+        const dir = [c[0] - at[0], c[1] - at[1], c[2] - at[2]].map((v) => v / Math.max(d, 0.01));
+        if (d > 0.6 && rayWorld(at, dir, MAP.boxes, d) < d - 0.3) continue; // cover blocks the blast
+        applyDamage(shooter, t, Math.round(w.damage * power * (1 - 0.7 * (d / w.blast))), false, wKey, c);
+      }
+      return;
+    }
     for (const [target, e] of dmgBy) applyDamage(shooter, target, e.dmg, e.head, wKey, e.at);
   }
 
@@ -236,11 +272,14 @@ export function createGame(opts = {}) {
   function applyDamage(attacker, target, dmg, head, wKey, at, backstab = false) {
     if (!target.alive || Date.now() < target.protectUntil) return;
     if (M.teams && attacker !== target && attacker.team === target.team) return; // no friendly fire
+    if (attacker.bot && !target.bot) dmg = Math.round(dmg * D.dmg); // practice difficulty
+    // Armor is a layer over health: it soaks damage first
+    if (target.armor > 0) { const soak = Math.min(target.armor, dmg); target.armor -= soak; dmg -= soak; }
     target.hp -= dmg;
     target.lastHurt = Date.now();
     const kill = target.hp <= 0;
     send(attacker, { t: 'hit', target: target.id, dmg, head, kill, at, backstab });
-    send(target, { t: 'hurt', by: attacker.id, hp: Math.max(0, target.hp), from: attacker.p });
+    send(target, { t: 'hurt', by: attacker.id, hp: Math.max(0, target.hp), armor: Math.round(target.armor), from: attacker.p });
     if (target.bot && target.ai) { target.ai.target = attacker.id; target.ai.seenAt = Date.now(); }
     if (kill) onKill(attacker, target, wKey, head, backstab);
   }
@@ -295,6 +334,27 @@ export function createGame(opts = {}) {
     sys('sys.newRound', { n: KILL_LIMIT });
   }
 
+  // ---------- pickups ----------
+  const itemState = () => items.map((it) => [it.id, it.type, it.p, Date.now() >= it.readyAt ? 1 : 0]);
+  // Your own armor, boosts and special weapon (times as milliseconds left)
+  function sendBuffs(p) {
+    const now = Date.now();
+    send(p, { t: 'buffs', armor: Math.round(p.armor), speed: Math.max(0, p.speedUntil - now), power: Math.max(0, p.powerUntil - now),
+      special: p.special ? { w: p.special.w, ms: p.special.until - now, ammo: p.ammo[p.special.w] } : null });
+  }
+  // Apply a pickup; false leaves it on the map (e.g. full health walking over a heart)
+  function takePickup(p, type, now) {
+    if (type === 'heart') { if (p.hp >= PLAYER.maxHp) return false; p.hp = Math.min(PLAYER.maxHp, p.hp + BUFF.heartHp); send(p, { t: 'heal', hp: p.hp }); }
+    else if (type === 'armor') { if (p.armor >= BUFF.armorMax) return false; p.armor = Math.min(BUFF.armorMax, p.armor + BUFF.armorAdd); }
+    else if (type === 'speed') p.speedUntil = now + BUFF.speedMs;
+    else if (type === 'power') p.powerUntil = now + BUFF.powerMs;
+    else if (type === 'ammo') { refill(p); send(p, { t: 'refill', ammo: p.ammo }); }
+    else if (type === 'rpg') { const w = WEAPONS.rpg; p.special = { w: 'rpg', until: now + w.seconds * 1000 }; p.ammo.rpg = w.rockets; }
+    else return false;
+    sendBuffs(p);
+    return true;
+  }
+
   // ---------- bots ----------
   const BOT_NAMES = ['Neon', 'Blitz', 'Turbo', 'Pixel', 'Robo', 'Shadow', 'Spark', 'Comet', 'Galaxy', 'Rainbow'];
   function balanceBots() {
@@ -335,7 +395,7 @@ export function createGame(opts = {}) {
       if ((d < tDist || remembered) && lineOfSight(b.p, o.p)) { target = o; tDist = d; }
     }
     if (target) {
-      if (ai.target !== target.id) { ai.reactAt = now + 500 + Math.random() * 500; ai.aimErr = 0.3; }
+      if (ai.target !== target.id) { ai.reactAt = now + D.react[0] + Math.random() * (D.react[1] - D.react[0]); ai.aimErr = 0.3; }
       ai.target = target.id; ai.seenAt = now;
       const dx = target.p[0] - b.p[0], dz = target.p[2] - b.p[2];
       const dy = target.p[1] + 0.9 - (b.p[1] + PLAYER.eye);
@@ -344,16 +404,16 @@ export function createGame(opts = {}) {
       let dyaw = wantYaw - b.yaw;
       while (dyaw > Math.PI) dyaw -= Math.PI * 2;
       while (dyaw < -Math.PI) dyaw += Math.PI * 2;
-      b.yaw += dyaw * Math.min(1, dt * 6);
-      b.pitch += (wantPitch - b.pitch) * Math.min(1, dt * 6);
-      ai.aimErr = Math.max(0.055, ai.aimErr - dt * 0.15);
+      b.yaw += dyaw * Math.min(1, dt * D.turn);
+      b.pitch += (wantPitch - b.pitch) * Math.min(1, dt * D.turn);
+      ai.aimErr = Math.max(D.aimMin, ai.aimErr - dt * D.aimTighten);
       // Strafe while fighting, close distance if far
       ai.strafeT -= dt;
       if (ai.strafeT <= 0) { ai.strafe = Math.random() < 0.5 ? -1 : 1; ai.strafeT = 0.6 + Math.random() * 1.2; }
       input.s = ai.strafe;
       input.f = tDist > 18 ? 1 : tDist < 6 ? -0.6 : 0;
       input.yaw = b.yaw;
-      const wKey = tDist < 7 ? 'shotgun' : 'rifle';
+      const wKey = tDist < 7 ? 'shotgun' : tDist < 14 ? 'smg' : (b.id.charCodeAt(1) % 2 ? 'm4' : 'rifle');
       if (b.ammo[wKey] <= 0 && now >= b.reloadUntil) { b.reloadUntil = now + WEAPONS[wKey].reload * 1000; b.ammo[wKey] = WEAPONS[wKey].mag; }
       if (now > ai.reactAt && Math.abs(dyaw) < 0.25) {
         const w = WEAPONS[wKey];
@@ -411,7 +471,7 @@ export function createGame(opts = {}) {
         const back = m.restore && typeof m.restore === 'object' ? m.restore : null;
         if (back) { me.kills = back.kills | 0; me.deaths = back.deaths | 0; me.heads = back.heads | 0; }
         if (M.teams) assignTeam(me, back && (back.team === 'A' || back.team === 'B') && teamOf(back.team).length < M.perTeam ? back.team : smallerTeam());
-        send(me, { t: 'welcome', id: me.id, color: me.color, match: { state: match.state, endsAt: match.endsAt }, killLimit: KILL_LIMIT, quick: QUICK_CHAT, mode, team: me.team });
+        send(me, { t: 'welcome', id: me.id, color: me.color, match: { state: match.state, endsAt: match.endsAt }, killLimit: KILL_LIMIT, quick: QUICK_CHAT, mode, team: me.team, difficulty, items: itemState() });
         sendRoster();
         sys('sys.joined', { name: me.name });
         if (match.state === 'playing') spawn(me);
@@ -429,7 +489,8 @@ export function createGame(opts = {}) {
           // Speed sanity check: horizontal and vertical budgets with generous tolerance
           const dh = Math.hypot(m.p[0] - me.p[0], m.p[2] - me.p[2]);
           const dv = Math.abs(m.p[1] - me.p[1]);
-          if (dh > PLAYER.speed * 1.6 * dt + 0.6 || dv > 14 * dt + 0.8) {
+          const boost = now < me.speedUntil + 500 ? BUFF.speedMul : 1; // speed pickup
+          if (dh > PLAYER.speed * 1.6 * boost * dt + 0.6 || dv > 14 * dt + 0.8) {
             send(me, { t: 'correct', p: me.p });
             return;
           }
@@ -467,7 +528,7 @@ export function createGame(opts = {}) {
           break;
         case 'reload': {
           const w = WEAPONS[m.w];
-          if (!w || !me.alive || Date.now() < me.reloadUntil || me.ammo[m.w] >= w.mag) return;
+          if (!w || w.pickupOnly || !me.alive || Date.now() < me.reloadUntil || me.ammo[m.w] >= w.mag) return;
           me.reloadUntil = Date.now() + w.reload * 1000 * 0.9;
           setTimeout(() => { if (players.has(me.id)) { me.ammo[m.w] = w.mag; send(me, { t: 'ammo', w: m.w, n: w.mag }); } }, w.reload * 1000 * 0.9);
           break;
@@ -561,6 +622,11 @@ export function createGame(opts = {}) {
         continue;
       }
       if (p.bot) botThink(p, dt);
+      if (p.special && now >= p.special.until) { p.special = null; delete p.ammo.rpg; if (p.weapon === 'rpg') p.weapon = 'rifle'; sendBuffs(p); }
+      for (const it of items) {
+        if (now < it.readyAt || Math.hypot(p.p[0] - it.p[0], p.p[2] - it.p[2]) > 1.3 || Math.abs(p.p[1] - it.p[1]) > 1.6) continue;
+        if (takePickup(p, it.type, now)) { it.readyAt = now + PICKUP[it.type].respawn * 1000; broadcast({ t: 'items', items: itemState(), took: { id: it.id, by: p.id, type: it.type } }); }
+      }
       // Health regen after 5 s out of combat
       if (now - p.lastHurt > 5000 && p.hp < PLAYER.maxHp) p.hp = Math.min(PLAYER.maxHp, p.hp + 30 * dt);
       p.history.push({ t: now, p: [p.p[0], p.p[1], p.p[2]] });
