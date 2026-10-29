@@ -44,7 +44,7 @@
 
     <div id="scoreboard" class="hidden"><h2 data-i18n="hud.scoreboard"></h2><table><thead><tr><th data-i18n="hud.player"></th><th data-i18n="hud.kills"></th><th data-i18n="hud.deaths"></th><th data-i18n="hud.ping"></th></tr></thead><tbody></tbody></table></div>
     <div id="death" class="hidden"><div class="big" data-i18n="hud.dead"></div><div id="death-by"></div><div id="death-count"></div></div>
-    <div id="pause" class="hidden"><div class="big" data-i18n="hud.pause"></div><div class="keys" data-i18n="hud.pauseKeys"></div><label class="pause-lang" onclick="event.stopPropagation()"><span data-i18n="menu.language"></span> <select class="lang-select" id="lang-game"></select></label></div>
+    <div id="pause" class="hidden"><div class="big" data-i18n="hud.pause"></div><a class="credit pause-credit" href="#" target="_blank" rel="noopener" onclick="event.stopPropagation()"></a><div class="keys" data-i18n="hud.pauseKeys"></div><label class="pause-lang" onclick="event.stopPropagation()"><span data-i18n="menu.language"></span> <select class="lang-select" id="lang-game"></select></label></div>
   </div>
 
   <!-- Skin shop -->
@@ -109,7 +109,7 @@
   <div id="menu">
     <div class="menu-shell">
       <header class="topnav">
-        <div class="brand"><h1>ARENA <span>RUSH</span></h1><small class="ver">v0.12</small></div>
+        <div class="brand"><h1>ARENA <span>RUSH</span></h1><small class="ver">v0.13</small></div>
         <div class="nav-side">
           <div id="profile" class="chip"></div>
           <button id="shop-btn" class="chip chip-btn" type="button">🛒 <span data-i18n="shop.open"></span></button>
@@ -213,6 +213,7 @@
         </details>
         <p class="safe" data-i18n="menu.safe"></p>
       </section>
+      <a id="credit" class="credit" href="#" target="_blank" rel="noopener"></a>
     </div>
   </div>
 
