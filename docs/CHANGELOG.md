@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-29 (0.8.1)
+- Moved to its own repository (RIVALS-GO); static site on the gh-pages branch.
+- Weapon holds measured from each model: left hand under the AK handguard, on the shotgun pump, under the rifle fore-end; two-hand pistol grip; one-hand machete.
+- Hands are turned by the measured palm direction; short-armed characters get the weapon (or first-person body) moved back so the support hand reaches.
+- Characters load one at a time on demand; embedded models are decoded without fetch (fixes characters not loading in the claude.ai app).
+
 ## 2026-10-29 (0.8.0)
 - Hands hold the weapon properly: shooting stance (torso turned, stock at the shoulder), right hand on the grip, left hand under the handguard, fingers closed around the grip, separate holds for pistol and knife; head and spine follow the aim.
 - First-person arms: your own character's sleeves and hands hold the weapon at eye height.
