@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Arena Rush</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three.module.js", "three/addons/": "/vendor/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+    <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+    <div id="scope" class="hidden"></div>
+    <div id="vignette"></div>
+    <div id="damage-dir"></div>
+    <div id="dmg-numbers"></div>
+
+    <div id="topbar">
+      <div id="team-score" class="hidden"><span id="ts-a" class="ta">0</span><span class="vs">:</span><span id="ts-b" class="tb">0</span></div>
+      <div id="timer">5:00</div>
+      <div id="leader"></div>
+    </div>
+    <div id="killfeed"></div>
+    <div id="announce"></div>
+    <div id="center-msg"></div>
+
+    <div id="health"><div id="hp-bar"><div id="hp-fill"></div></div><span id="hp-text">100</span></div>
+    <div id="ammo"><div id="weapon-name"></div><div><span id="mag">30</span> <small>/ <span id="mag-max">30</span></small></div><div id="weapon-slots"></div></div>
+    <div id="streak"></div>
+    <div id="voice-hud" class="hidden"><span class="mic">🎙</span> <span id="voice-text"></span></div>
+    <div id="room-code" class="hidden"></div>
+
+    <div id="chat">
+      <div id="chat-log"></div>
+      <div id="quick-menu" class="hidden"></div>
+      <input id="chat-input" class="hidden" maxlength="120" autocomplete="off" data-i18n-ph="hud.chatPh" placeholder="">
+    </div>
+
+    <div id="scoreboard" class="hidden"><h2 data-i18n="hud.scoreboard"></h2><table><thead><tr><th data-i18n="hud.player"></th><th data-i18n="hud.kills"></th><th data-i18n="hud.deaths"></th><th data-i18n="hud.ping"></th></tr></thead><tbody></tbody></table></div>
+    <div id="death" class="hidden"><div class="big" data-i18n="hud.dead"></div><div id="death-by"></div><div id="death-count"></div></div>
+    <div id="pause" class="hidden"><div class="big" data-i18n="hud.pause"></div><div class="keys" data-i18n="hud.pauseKeys"></div><label class="pause-lang" onclick="event.stopPropagation()"><span data-i18n="menu.language"></span> <select class="lang-select" id="lang-game"></select></label></div>
+  </div>
+
+  <!-- Skin shop -->
+  <div id="shop" class="hidden" role="dialog" aria-modal="true">
+    <div class="shop-card-wrap">
+      <div class="shop-head"><h2 data-i18n="shop.title"></h2><span id="shop-balance"></span></div>
+      <p class="shop-note" data-i18n="shop.note"></p>
+      <div id="shop-items"></div>
+      <p id="shop-status"></p>
+      <button id="shop-close" class="secondary" type="button" data-i18n="shop.close"></button>
+    </div>
+  </div>
+
+  <!-- Team lobby -->
+  <div id="lobby" class="hidden">
+    <div class="lobby-card">
+      <h2 id="lobby-title"></h2>
+      <div class="lobby-teams">
+        <section id="lobby-A" class="team team-a"><h3></h3><ul></ul></section>
+        <section id="lobby-B" class="team team-b"><h3></h3><ul></ul></section>
+      </div>
+      <p id="lobby-status"></p>
+      <div class="row">
+        <button id="lobby-switch" class="secondary" type="button" data-i18n="lobby.switch"></button>
+        <button id="lobby-ready" type="button"></button>
+      </div>
+      <p id="lobby-invite"></p>
+      <button id="lobby-leave" class="link" type="button" data-i18n="lobby.leave"></button>
+    </div>
+  </div>
+
+  <!-- Admin panel (staff only; the server checks every action) -->
+  <button id="admin-btn" class="hidden" type="button" data-i18n="admin.panel"></button>
+  <div id="admin-panel" class="hidden" role="dialog" aria-modal="true">
+    <div class="admin-head"><h2 data-i18n="admin.panel"></h2><button id="admin-close" type="button" aria-label="close">✕</button></div>
+    <input id="admin-search" data-i18n-ph="admin.search" autocomplete="off">
+    <div id="admin-list"></div>
+  </div>
+  <div id="admin-confirm" class="hidden" role="alertdialog">
+    <p></p>
+    <input data-i18n-ph="admin.reasonPh" maxlength="100" autocomplete="off">
+    <div class="row"><button class="yes" type="button" data-i18n="admin.yes"></button><button class="no secondary" type="button" data-i18n="admin.cancel"></button></div>
+  </div>
+
+  <!-- Touch controls (mobile) -->
+  <div id="touch" class="hidden">
+    <div id="stick"><div id="stick-knob"></div></div>
+    <button id="t-fire" class="tbtn big">🔫</button>
+    <button id="t-ads" class="tbtn">🎯</button>
+    <button id="t-jump" class="tbtn">⤒</button>
+    <button id="t-reload" class="tbtn">R</button>
+    <button id="t-swap" class="tbtn">⇄</button>
+    <button id="t-chat" class="tbtn">💬</button>
+    <button id="t-quick" class="tbtn">⚡</button>
+    <button id="t-score" class="tbtn">🏆</button>
+    <button id="t-voice" class="tbtn">🎙</button>
+  </div>
+
+  <!-- Main menu -->
+  <div id="menu">
+    <div class="menu-shell">
+      <header class="topnav">
+        <div class="brand"><h1>ARENA <span>RUSH</span></h1><small class="ver">v0.8</small></div>
+        <div class="nav-side">
+          <div id="profile" class="chip"></div>
+          <button id="shop-btn" class="chip chip-btn" type="button">🛒 <span data-i18n="shop.open"></span></button>
+          <label class="chip lang-pick"><span aria-hidden="true">🌐</span> <select class="lang-select" id="lang" data-i18n-aria="menu.language"></select></label>
+        </div>
+      </header>
+
+      <section class="panel char-panel" data-i18n-aria="menu.charSelect">
+        <div class="preview-wrap">
+          <canvas id="char-preview" width="480" height="560"></canvas>
+          <button id="char-prev" class="arrow" type="button" data-i18n-aria="menu.prevChar">›</button>
+          <button id="char-next" class="arrow" type="button" data-i18n-aria="menu.nextChar">‹</button>
+          <div class="char-caption">
+            <span id="char-kind" class="kind"></span>
+            <div id="char-name" class="char-name"></div>
+            <div id="char-role" class="char-role"></div>
+          </div>
+          <span class="drag-hint" data-i18n="menu.dragHint"></span>
+          <div id="char-loading" class="char-loading hidden" role="status"></div>
+        </div>
+        <h2 class="sub" data-i18n="menu.charSelect"></h2>
+        <div id="char-list" class="char-list" role="radiogroup"></div>
+      </section>
+
+      <section class="panel play-panel" data-i18n-aria="menu.gameSettings">
+        <label class="name-field"><span data-i18n="menu.playerName"></span> <input id="name" maxlength="16" data-i18n-ph="menu.namePh" autocomplete="nickname"></label>
+
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" type="button" data-tab="play" aria-selected="true" data-i18n="menu.tabPlay"></button>
+          <button class="tab" role="tab" type="button" data-tab="friends" aria-selected="false" data-i18n="menu.tabFriends"></button>
+          <button class="tab" role="tab" type="button" data-tab="servers" aria-selected="false" data-i18n="menu.tabServers"></button>
+        </div>
+
+        <div class="tab-page" data-page="play">
+          <p class="hint" id="play-hint"></p>
+          <button id="play" type="button" data-i18n="menu.quickPlay"></button>
+        </div>
+
+        <div class="tab-page hidden" data-page="friends">
+          <p class="hint" data-i18n="p2p.explain"></p>
+          <div class="field-row">
+            <select id="p2p-mode" data-i18n-aria="menu.mode">
+              <option value="ffa" data-i18n="mode.ffa"></option>
+              <option value="duel" data-i18n="mode.duel"></option>
+              <option value="team2" data-i18n="mode.team2"></option>
+            </select>
+            <button id="p2p-host" class="primary" type="button" data-i18n="p2p.host"></button>
+          </div>
+          <div class="divider"><span data-i18n="p2p.or"></span></div>
+          <div class="field-row">
+            <input id="p2p-code" class="code-input" maxlength="5" data-i18n-ph="menu.roomCodePh" autocomplete="off" inputmode="latin">
+            <button id="p2p-join" class="secondary" type="button" data-i18n="menu.join"></button>
+          </div>
+        </div>
+
+        <div class="tab-page hidden" data-page="servers">
+          <div class="server-head">
+            <h2 class="sub" data-i18n="menu.server"></h2>
+            <button id="servers-refresh" class="link" type="button" data-i18n="menu.refresh"></button>
+          </div>
+          <div id="servers" class="servers" role="radiogroup" data-i18n-aria="menu.serverList"></div>
+          <div id="gsi"></div>
+          <p id="account"></p>
+          <div class="field-row online-only">
+            <select id="mode" data-i18n-aria="menu.mode">
+              <option value="ffa" data-i18n="mode.ffa"></option>
+              <option value="duel" data-i18n="mode.duel"></option>
+              <option value="team2" data-i18n="mode.team2"></option>
+            </select>
+            <button id="create" class="secondary" type="button" data-i18n="menu.createRoom"></button>
+          </div>
+          <div class="field-row online-only">
+            <input id="code" class="code-input" maxlength="5" data-i18n-ph="menu.roomCodePh" autocomplete="off">
+            <button id="join-code" class="secondary" type="button" data-i18n="menu.join"></button>
+          </div>
+          <p id="online-count"></p>
+        </div>
+
+        <p id="menu-status" role="status"></p>
+
+        <details>
+          <summary data-i18n="menu.settings"></summary>
+          <label><span data-i18n="menu.sensitivity"></span> <input id="sens" type="range" min="0.3" max="3" step="0.1" value="1"></label>
+          <label><span data-i18n="menu.timeOfDay"></span> <select id="time"><option value="day" data-i18n="menu.day"></option><option value="night" data-i18n="menu.night"></option></select></label>
+          <label class="check"><input id="voice-on" type="checkbox" checked> <span data-i18n="voice.setting"></span></label>
+        </details>
+        <details>
+          <summary data-i18n="menu.controls"></summary>
+          <ul>
+            <li data-i18n="menu.ctrlMove"></li>
+            <li data-i18n="menu.ctrlFire"></li>
+            <li data-i18n="menu.ctrlWeapons"></li>
+            <li data-i18n="menu.ctrlChat"></li>
+            <li data-i18n="voice.ctrl"></li>
+            <li data-i18n="menu.ctrlInvite"></li>
+            <li data-i18n="menu.ctrlCmds"></li>
+          </ul>
+        </details>
+        <p class="safe" data-i18n="menu.safe"></p>
+      </section>
+    </div>
+  </div>
+
+  <!-- Friend invitation -->
+  <div id="invite" class="hidden"><span></span><button class="yes" data-i18n="menu.join"></button><button class="no" data-i18n="hud.notNow"></button></div>
+
+  <!-- End of match -->
+  <div id="end" class="hidden">
+    <div class="menu-card">
+      <h2 id="end-title"></h2>
+      <table id="end-board"><thead><tr><th>#</th><th data-i18n="hud.player"></th><th data-i18n="hud.kills"></th><th data-i18n="hud.deaths"></th></tr></thead><tbody></tbody></table>
+      <div id="xp-box"><div id="xp-line"></div><div class="xpbar"><div id="xp-fill"></div></div><div id="next-goal"></div></div>
+      <p id="end-next"></p>
+    </div>
+  </div>
+
+  <script type="module" src="client.js"></script>
+</body>
+</html>

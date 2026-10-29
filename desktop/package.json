@@ -1,0 +1,30 @@
+{
+  "name": "arena-rush-desktop",
+  "productName": "Arena Rush",
+  "version": "0.8.0",
+  "description": "Arena Rush desktop build (Windows) for Steam and direct download",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "prepare-app": "node build-app.js",
+    "start": "npm run prepare-app && electron .",
+    "dist": "npm run prepare-app && electron-builder --win zip dir",
+    "dist:installer": "npm run prepare-app && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.arenarush.game",
+    "productName": "Arena Rush",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "app/**/*"],
+    "win": {
+      "target": ["zip"],
+      "icon": "icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+  }
+}

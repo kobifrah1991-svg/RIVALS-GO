@@ -1,0 +1,23 @@
+{
+  "name": "arena-rush",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arena Rush – browser FPS prototype with multiplayer and chat",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.4",
+    "three": "^0.170.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

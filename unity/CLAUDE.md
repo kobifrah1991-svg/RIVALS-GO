@@ -1,0 +1,11 @@
+# ArenaRush – Agent Instructions
+- Read docs/GDD_Arena_Rush.md before every task.
+- Engine: Unity 6, URP, C#. Target: Windows + Android.
+- Work only on the current milestone (see GDD section 17).
+- Balance values in ScriptableObjects/JSON, never hardcoded (weapons: Assets/ArenaRush/Data/Weapons).
+- No hardcoded UI text: use Unity Localization. Hebrew/Arabic must render RTL (until then, pass Hebrew through `Rtl.Fix`).
+- Damage, economy and match results are server-authoritative (see PlayerNetwork.ServerFire / MatchManager).
+- Multiplayer currently uses Netcode for GameObjects (host/join over IP). Photon Fusion 2 from the GDD is a later migration decision — ask before switching.
+- Code lives in Assets/ArenaRush/Runtime (Core, Data, Net, Player, UI) and Assets/ArenaRush/Editor.
+- After each task: check compile errors, git commit, list what Kobi should test manually.
+- Explain things simply; the owner has limited technical background.
