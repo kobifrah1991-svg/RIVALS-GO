@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-29 (0.12.0)
+- Tougher players: 175 HP (rifle ~8 body hits / 5 headshots, pistol 6, sniper 3 / 2 to the head; backstab still kills). Faster regen after 5 s (30/s), +40 HP for a kill.
+- Phone controls: floating joystick (appears under the left thumb anywhere on the left side), dead zone and response curve, bigger stick; finger look with gentle acceleration.
+- Gyro aiming: turning / tilting the phone turns the view (portrait and both landscape sides); on/off and sensitivity in Settings.
+
 ## 2026-10-29 (0.11.0)
 - RIVALS-style map traversal: walkable ramps (to the central platform and two new 5.5 m towers), six jump pads (~6 m launch, pulsing), climbing (jump into a ledge up to 2.4 m high to pull yourself up), crate stacks and catwalks to scramble up.
 - Higher jump (~1.8 m). Bots use the same ramps and pads.

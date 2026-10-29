@@ -48,6 +48,8 @@ const S = {
   'menu.full': { he: 'הזירה מלאה. נסו שוב בעוד רגע.', en: 'The arena is full. Try again in a moment.', ru: 'Арена заполнена. Попробуйте чуть позже.', ar: 'الساحة ممتلئة. حاول مجددًا بعد قليل.' },
   'menu.codeLength': { he: 'קוד חדר הוא 5 תווים.', en: 'A room code has 5 characters.', ru: 'Код комнаты состоит из 5 символов.', ar: 'رمز الغرفة مكوّن من 5 خانات.' },
   'srv.cloudRegion': { he: 'שרת ענן · ניקוד וכסף נשמרים', en: 'Cloud server · score and credits are saved', ru: 'Облачный сервер · очки и кредиты сохраняются', ar: 'خادم سحابي · يتم حفظ النقاط والرصيد' },
+  'menu.gyro': { he: 'כיוון עם תנועת הטלפון (ג\'ירו)', en: 'Aim by moving the phone (gyro)', ru: 'Прицел движением телефона (гироскоп)', ar: 'التصويب بتحريك الهاتف (جيروسكوب)' },
+  'menu.gyroSens': { he: 'רגישות ג\'ירו', en: 'Gyro sensitivity', ru: 'Чувствительность гироскопа', ar: 'حساسية الجيروسكوب' },
   'menu.tabPlay': { he: 'שחק עכשיו', en: 'Play now', ru: 'Играть', ar: 'العب الآن' },
   'menu.tabFriends': { he: 'עם חברים', en: 'With friends', ru: 'С друзьями', ar: 'مع الأصدقاء' },
   'menu.tabServers': { he: 'שרתים', en: 'Servers', ru: 'Серверы', ar: 'الخوادم' },

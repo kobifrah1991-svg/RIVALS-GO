@@ -1,6 +1,7 @@
 // Server-side admin system (PROJECT_PLAN stage D).
 // Roles come only from verified identities (Google email) or the operator's secret ADMIN_CODE,
 // never from player names or anything the client claims. Every attempt is written to an audit log.
+import { PLAYER } from './shared/physics.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WEAPONS } from './shared/weapons.js';
@@ -16,7 +17,7 @@ const COMMANDS = {
   announce: { role: 'Moderator', usage: '/announce <message>' },
   kick: { role: 'Moderator', usage: '/kick <player> [reason]' },
   heal: { role: 'Admin', usage: '/heal <player> [1-100]' },
-  sethealth: { role: 'Admin', usage: '/sethealth <player> <1-100>' },
+  sethealth: { role: 'Admin', usage: '/sethealth <player> <1-175>' },
   giveweapon: { role: 'Admin', usage: `/giveweapon <player> <${Object.keys(WEAPONS).join('|')}>` },
   teleport: { role: 'Admin', usage: '/teleport <player> <spawn 1-12 | player>' },
   ban: { role: 'Admin', usage: '/ban <player> [minutes] <reason>' },
@@ -131,7 +132,7 @@ export function createAdmin({ dataDir, rooms, sessions, economy }) {
       }
       case 'sethealth': {
         const n = Number(args[1]);
-        if (!Number.isInteger(n) || n < 1 || n > 100) return bad();
+        if (!Number.isInteger(n) || n < 1 || n > PLAYER.maxHp) return bad();
         return game.admin.setHealth(target, n) ? done(target.name, n) : fail(target.name, n);
       }
       case 'giveweapon': {
