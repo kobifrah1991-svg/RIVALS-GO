@@ -88,7 +88,7 @@ code { direction: rtl; unicode-bidi: plaintext; background: rgba(255,255,255,.08
 .char-loading { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); padding: 10px 16px; border-radius: 12px; background: rgba(5,6,16,.75); border: 1px solid rgba(0,229,255,.4); color: var(--text); font-weight: 700; text-align: center; max-width: 80%; }
 .char-loading .err { display: block; margin-top: 6px; font-size: 11px; font-weight: 400; color: var(--muted); direction: ltr; word-break: break-word; }
 .drag-hint { position: absolute; top: 10px; inset-inline-start: 12px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,.35); padding: 3px 8px; border-radius: 999px; }
-.char-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.char-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .char-card { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: var(--text); border-radius: 12px; padding: 8px 4px; font-size: 12px; font-weight: 700; min-width: 0; transition: border-color .15s, transform .1s; }
 .char-card:hover { border-color: rgba(255,255,255,.35); transform: translateY(-1px); }
 .char-card .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; font-weight: 900; color: #fff; }
@@ -143,7 +143,7 @@ label.check input { width: 18px; height: 18px; accent-color: var(--pink); }
   .chip { padding: 6px 10px; font-size: 13px; }
 }
 @media (max-width: 420px) {
-  .char-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .char-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .char-card { font-size: 10px; padding: 6px 2px; }
   .char-card .av { width: 28px; height: 28px; font-size: 13px; }
 }

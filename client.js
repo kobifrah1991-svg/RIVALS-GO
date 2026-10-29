@@ -8,6 +8,7 @@ import { t, LANGS, getLang, setLang, detectLang } from './shared/i18n.js';
 import { SHOP, SLOTS } from './shared/shop.js';
 import { P2PHostSocket, P2PGuestSocket, p2pErrorKey, validCode } from './p2p.js';
 import { createVoice } from './voice.js';
+import { ONLINE_SERVERS } from './shared/servers.js';
 const gunModel = (key, scale, camo) => buildGun(key, WEAPONS[key].color, scale, camo);
 
 const $ = (id) => document.getElementById(id);
@@ -91,6 +92,7 @@ function blip(freq, dur = 0.08, type = 'square', vol = 0.15, delay = 0) {
 }
 const sfx = {
   swing: () => { if (!actx) return; const t0 = actx.currentTime; const src = actx.createBufferSource(); src.buffer = noise; const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(3000, t0 + 0.15); const g = actx.createGain(); g.gain.setValueAtTime(0.25, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18); src.connect(f).connect(g).connect(actx.destination); src.start(t0, 0, 0.2); },
+  slide: () => { if (!actx) return; const t0 = actx.currentTime; const src = actx.createBufferSource(); src.buffer = noise; const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(1800, t0); f.frequency.exponentialRampToValueAtTime(300, t0 + 0.5); const g = actx.createGain(); g.gain.setValueAtTime(0.18, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55); src.connect(f).connect(g).connect(actx.destination); src.start(t0, 0, 0.6); },
   hit: () => blip(1400, 0.05, 'square', 0.12),
   head: () => { blip(1900, 0.06, 'square', 0.14); blip(2500, 0.08, 'square', 0.12, 0.05); },
   kill: () => { blip(660, 0.12, 'triangle', 0.25); blip(990, 0.15, 'triangle', 0.25, 0.08); blip(1320, 0.25, 'triangle', 0.25, 0.16); },
@@ -264,29 +266,67 @@ function lerpAngle(a, b, k) {
 }
 
 // ======================= effects =======================
+// Arcade-style, RIVALS-inspired: bright glowing tracers, punchy muzzle flashes, sparks and dust on impact,
+// a burst when you eliminate someone. All additive so they glow in daylight too.
 const tracers = [];
+const glow = (color, opacity = 1) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+const beamGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true);
+const _up = new THREE.Vector3(0, 1, 0);
 function tracer(from, to, color = 0xfff59d) {
-  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]);
-  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
-  scene.add(line);
-  tracers.push({ obj: line, life: 0.08, max: 0.08 });
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
+  const len = a.distanceTo(b);
+  if (len < 0.05) return;
+  const dir = b.clone().sub(a).normalize();
+  for (const [r, op, c] of [[0.012, 1, 0xffffff], [0.035, 0.55, color]]) { // white-hot core + coloured glow
+    const m = new THREE.Mesh(beamGeo, glow(c, op));
+    m.scale.set(r, len, r);
+    m.position.copy(a).addScaledVector(dir, len / 2);
+    m.quaternion.setFromUnitVectors(_up, dir);
+    scene.add(m);
+    tracers.push({ obj: m, life: 0.11, max: 0.11, op, shrink: true });
+  }
 }
-const sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+const sparkGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
 function sparks(at, color = 0xffd54f, n = 6) {
   for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color, transparent: true }));
+    const m = new THREE.Mesh(sparkGeo, glow(color));
     m.position.set(...at);
     scene.add(m);
-    tracers.push({ obj: m, life: 0.35, max: 0.35, vel: [(Math.random() - 0.5) * 6, Math.random() * 5, (Math.random() - 0.5) * 6] });
+    tracers.push({ obj: m, life: 0.4, max: 0.4, op: 1, vel: [(Math.random() - 0.5) * 8, Math.random() * 6, (Math.random() - 0.5) * 8] });
+  }
+}
+const puffGeo = new THREE.SphereGeometry(1, 8, 6);
+function puff(at, color = 0xcfc8b8, size = 0.12) { // dust cloud where a bullet hits a wall
+  const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false }));
+  m.position.set(...at); m.scale.setScalar(size);
+  scene.add(m);
+  tracers.push({ obj: m, life: 0.45, max: 0.45, op: 0.55, grow: size * 5 });
+}
+function flashAt(at, size = 0.5, color = 0xffe08a) { // muzzle flash star seen by everyone
+  const m = new THREE.Mesh(puffGeo, glow(color, 0.9));
+  m.position.set(...at); m.scale.setScalar(size * 0.35);
+  scene.add(m);
+  tracers.push({ obj: m, life: 0.06, max: 0.06, op: 0.9 });
+}
+function eliminationBurst(at, color) { // you eliminated someone: a ring of glowing shards
+  for (let i = 0; i < 24; i++) {
+    const m = new THREE.Mesh(sparkGeo, glow(i % 3 ? color : 0xffffff));
+    m.position.set(at[0], at[1] + 1, at[2]); m.scale.setScalar(1.6);
+    scene.add(m);
+    const a = (i / 24) * Math.PI * 2;
+    tracers.push({ obj: m, life: 0.7, max: 0.7, op: 1, vel: [Math.cos(a) * 6, 3 + Math.random() * 4, Math.sin(a) * 6] });
   }
 }
 function updateEffects(dt) {
   for (let i = tracers.length - 1; i >= 0; i--) {
     const e = tracers[i];
     e.life -= dt;
+    const k = Math.max(0, e.life / e.max);
     if (e.vel) { e.vel[1] -= 15 * dt; e.obj.position.x += e.vel[0] * dt; e.obj.position.y += e.vel[1] * dt; e.obj.position.z += e.vel[2] * dt; }
-    e.obj.material.opacity = Math.max(0, e.life / e.max);
-    if (e.life <= 0) { scene.remove(e.obj); e.obj.geometry !== sparkGeo && e.obj.geometry.dispose(); e.obj.material.dispose(); tracers.splice(i, 1); }
+    if (e.grow) e.obj.scale.setScalar(e.obj.scale.x + e.grow * dt);
+    if (e.shrink) { e.obj.scale.x *= 0.85; e.obj.scale.z *= 0.85; }
+    e.obj.material.opacity = e.op * k;
+    if (e.life <= 0) { scene.remove(e.obj); e.obj.material.dispose(); tracers.splice(i, 1); }
   }
 }
 
@@ -561,7 +601,7 @@ function tryFire(now) {
     }
     const end = [o[0] + d[0] * dist, o[1] + d[1] * dist, o[2] + d[2] * dist];
     tracer(muzzle, end, w.color);
-    if (dist < w.range) sparks(end, hitPlayer ? 0xff1744 : 0xffd54f, hitPlayer ? 4 : 5);
+    if (dist < w.range) { sparks(end, hitPlayer ? 0xff1744 : 0xffd54f, hitPlayer ? 7 : 6); if (!hitPlayer) puff(end); }
   }
   shotSound(me.weapon, 1);
   recoil += w.recoil * 6;
@@ -569,7 +609,9 @@ function tryFire(now) {
   me.yaw += (Math.random() - 0.5) * w.recoil * 0.5;
   shake = Math.min(0.6, shake + w.recoil * 3);
   flash.visible = true;
-  flashLight.intensity = 6;
+  flash.scale.setScalar(1.2 + Math.random() * 0.8); flash.rotation.z = Math.random() * Math.PI;
+  camera.fov += w.recoil * 30; // a small kick of the view on every shot
+  flashLight.intensity = 9;
   flashLight.position.set(...muzzle);
   setTimeout(() => { flash.visible = false; flashLight.intensity = 0; }, 45);
   vibrate(me.weapon === 'shotgun' || me.weapon === 'sniper' ? 30 : 10);
@@ -589,6 +631,12 @@ function setStance(st) {
   if (st < me.stance && !canStance(me.p, st, MAP.boxes)) { addChat({ sys: true, key: 'hud.noRoom' }); return; }
   me.stance = st;
   updateStanceHud();
+}
+// Crouch while running = slide (keeps momentum, then you are crouched); otherwise toggle crouch
+let wantSlide = false;
+function crouchPress() {
+  if (me.stance === 0 && me.onGround && Math.hypot(me.v[0], me.v[2]) > PLAYER.speed * 0.7) { wantSlide = true; setStance(1); sfx.slide(); return; }
+  setStance(me.stance === 1 ? 0 : 1);
 }
 function updateStanceHud() {
   $('t-crouch').classList.toggle('on', me.stance === 1);
@@ -671,7 +719,7 @@ let myRole = 'Player', kickedNotice = null;
 const ROLE_RANK = { Player: 0, Moderator: 1, Admin: 2, Owner: 3 };
 // action: { t: 'quickMatch' } | { t: 'create' } | { t: 'joinCode', code }
 // action: { t: 'p2pHost', mode } | { t: 'p2pJoin', code } play with friends device to device (see p2p.js)
-function connect(name, action = { t: 'quickMatch' }, offline = offlineOnly || !!selectedServer()?.offline) {
+function connect(name, action = { t: 'quickMatch' }, offline = !!selectedServer()?.offline) {
   let opened = false;
   const p2p = action.t === 'p2pHost' || action.t === 'p2pJoin';
   if (p2p) offline = false;
@@ -800,7 +848,8 @@ function onMessage(m) {
     case 'shot': {
       const r = remotes.get(m.id);
       const from = r?.cur ? [r.cur.p[0], r.cur.p[1] + 1.3, r.cur.p[2]] : m.o;
-      for (const e of m.ends) { tracer(from, e, WEAPONS[m.w]?.color); if (!e[3]) sparks(e, 0xffd54f, 3); }
+      flashAt(from, 0.6);
+      for (const e of m.ends) { tracer(from, e, WEAPONS[m.w]?.color); if (!e[3]) { sparks(e, 0xffd54f, 4); puff(e); } else sparks(e, 0xff1744, 5); }
       const dist = Math.hypot(m.o[0] - me.p[0], m.o[1] - me.p[1], m.o[2] - me.p[2]);
       shotSound(m.w, Math.min(0.8, 6 / (dist + 3)));
       break;
@@ -839,6 +888,8 @@ function showDamageDir(from) {
 
 function onKillMsg(m) {
   killFeed(m.killer, m.victim, m.w, m.head);
+  const victim = remotes.get(m.victim);
+  if (victim?.cur) eliminationBurst(victim.cur.p, victim.color ?? 0xff2e88);
   if (m.killer === me.id) {
     me.streak = m.streak;
     if (m.head) me.heads++;
@@ -1017,7 +1068,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'F2') { e.preventDefault(); toggleAdminPanel(); return; }
   if (e.code === 'KeyB') { toggleQuick(); return; }
   if (e.code === 'KeyV') { if (!e.repeat) setTalking(true); return; }
-  if (e.code === 'KeyC' || e.code === 'ControlLeft') { if (!e.repeat) setStance(me.stance === 1 ? 0 : 1); return; }
+  if (e.code === 'KeyC' || e.code === 'ControlLeft') { if (!e.repeat) crouchPress(); return; }
   if (e.code === 'KeyZ') { if (!e.repeat) setStance(me.stance === 2 ? 0 : 2); return; }
   if (quickOpen && /^Digit[1-6]$/.test(e.code)) { sendQuick(Number(e.code.slice(5)) - 1); return; }
   if (e.code === 'Escape' && quickOpen) { toggleQuick(); return; }
@@ -1085,7 +1136,7 @@ function setupTouch() {
   hold('t-quick', toggleQuick);
   hold('t-score', () => $('scoreboard').classList.toggle('hidden'));
   hold('t-voice', () => setTalking(true), () => setTalking(false)); // hold to talk
-  hold('t-crouch', () => setStance(me.stance === 1 ? 0 : 1));
+  hold('t-crouch', crouchPress);
   hold('t-prone', () => setStance(me.stance === 2 ? 0 : 2));
 }
 if (isTouch) setupTouch();
@@ -1114,7 +1165,7 @@ function openShop() {
   $('shop-status').textContent = '';
   if (ws && ws.readyState === 1 && !lobby?.offline) { shopSend({ t: 'profile' }); renderShop(); return; }
   const sv = selectedServer();
-  if (offlineOnly || sv.offline) { myProfile = null; renderShop(); $('shop-status').textContent = t('shop.needOnline'); return; }
+  if (sv.offline) { myProfile = null; renderShop(); $('shop-status').textContent = t('shop.needOnline'); return; }
   $('shop-status').textContent = t('shop.connecting');
   shopWs = new WebSocket(wsUrl(sv));
   shopWs.onopen = () => shopWs.send(JSON.stringify({ t: 'auth', credential: googleCredential, guestToken: guestToken() }));
@@ -1412,17 +1463,18 @@ async function pingServer(sv) {
 }
 
 async function loadServers() {
+  // Served by a game server: it lists itself (servers.json). Static site / APK: no server of their own.
+  let list = [];
   if (!offlineOnly) {
-    let list = [{ nameKey: 'srv.here', regionKey: 'srv.hereRegion', url: '' }];
+    list = [{ nameKey: 'srv.here', regionKey: 'srv.hereRegion', url: '' }];
     try {
       const r = await fetch('servers.json', { cache: 'no-store' });
       if (r.ok) list = await r.json();
     } catch { /* keep the default */ }
-    servers = [LOCAL_SERVER, ...list.map((sv, i) => ({ id: sv.id || 'srv' + i, ...sv }))];
-    if (!selectedServerId || !servers.some((sv) => sv.id === selectedServerId)) selectedServerId = servers[1]?.id || LOCAL_SERVER.id;
-  } else {
-    selectedServerId = LOCAL_SERVER.id;
   }
+  for (const sv of window.ARENA_SERVERS || ONLINE_SERVERS) if (!list.some((x) => x.url === sv.url)) list.push(sv); // ARENA_SERVERS: override for self-hosting / tests
+  servers = [LOCAL_SERVER, ...list.map((sv, i) => ({ id: sv.id || 'srv' + i, ...sv }))];
+  if (!selectedServerId || !servers.some((sv) => sv.id === selectedServerId)) selectedServerId = offlineOnly ? LOCAL_SERVER.id : servers[1]?.id || LOCAL_SERVER.id;
   renderServers();
   servers.filter((sv) => !sv.offline).forEach(pingServer);
 }
@@ -1545,7 +1597,8 @@ function frame(now) {
     f += touchMove.f; s += touchMove.s;
     // Jump from crouch or prone stands up first (if there is room)
     if ((keys.has('Space') || wantJump) && me.stance) { setStance(0); keys.delete('Space'); wantJump = false; }
-    step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads }, dt, MAP.boxes);
+    step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads, slide: wantSlide }, dt, MAP.boxes);
+    wantSlide = false;
     me.eyeH += (stanceOf(me.stance).eye - me.eyeH) * Math.min(1, dt * 10);
     wantJump = false;
     if (mouseDown) tryFire(now);
@@ -1561,7 +1614,7 @@ function frame(now) {
   recoil *= Math.pow(0.0005, dt);
   shake *= Math.pow(0.002, dt);
   const sniperScoped = me.ads && me.weapon === 'sniper' && me.alive;
-  const targetFov = me.ads && me.alive ? WEAPONS[me.weapon].adsFov : 78;
+  const targetFov = me.ads && me.alive ? WEAPONS[me.weapon].adsFov : 78 + (me.slideT > 0 ? 8 : 0); // wider view while sliding
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 14);
   camera.updateProjectionMatrix();
   if (me.alive) {
