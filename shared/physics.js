@@ -4,10 +4,12 @@ export const PLAYER = {
   height: 1.8,
   eye: 1.6,
   headBase: 1.4,   // body hitbox ends here, head hitbox starts
-  speed: 7.5,
-  adsSpeed: 4.2,
-  jump: 8,
-  gravity: 22,
+  speed: 9,        // fast, RIVALS-like movement
+  adsSpeed: 5.4,
+  jump: 8.8,
+  gravity: 25,
+  slideBoost: 1.45, // crouch while running: a short slide that keeps momentum
+  slideTime: 0.7,
   stepUp: 0.46,
   maxHp: 100,
 };
@@ -47,9 +49,22 @@ export function step(state, input, dt, boxes) {
   // forward = (-sin, 0, -cos), right = (cos, 0, -sin)
   const tx = (-sy * f + cy * s) * speed;
   const tz = (-cy * f - sy * s) * speed;
-  const accel = state.onGround ? 14 : 4;
-  v[0] += (tx - v[0]) * Math.min(1, accel * dt);
-  v[2] += (tz - v[2]) * Math.min(1, accel * dt);
+  // Slide: starts when crouching at running speed, glides with low friction, then you are crouched
+  const hs = Math.hypot(v[0], v[2]);
+  if (input.slide && state.onGround && !(state.slideT > 0) && hs > PLAYER.speed * 0.7) {
+    const k = Math.min(PLAYER.speed * PLAYER.slideBoost, hs * PLAYER.slideBoost) / hs;
+    v[0] *= k; v[2] *= k;
+    state.slideT = PLAYER.slideTime;
+  }
+  if (state.slideT > 0) {
+    state.slideT -= dt;
+    const fr = Math.max(0, 1 - 1.6 * dt);
+    v[0] *= fr; v[2] *= fr;
+  } else {
+    const accel = state.onGround ? 18 : 6;
+    v[0] += (tx - v[0]) * Math.min(1, accel * dt);
+    v[2] += (tz - v[2]) * Math.min(1, accel * dt);
+  }
   if (input.jump && state.onGround && !state.stance) { v[1] = PLAYER.jump; state.onGround = false; }
   v[1] -= PLAYER.gravity * dt;
 

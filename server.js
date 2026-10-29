@@ -221,4 +221,6 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => { rememberSeat(sess); leaveRoom(sess); sessions.delete(sess); });
 });
 
+// Accounts (credits, XP, items) must be loaded before players connect
+await economy.ready;
 server.listen(PORT, () => console.log(`Arena Rush running on http://localhost:${PORT}` + (GOOGLE_CLIENT_ID ? ' (Google sign-in on)' : ' (guests only: set GOOGLE_CLIENT_ID for Google sign-in)')));

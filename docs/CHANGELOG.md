@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-29 (0.10.0)
+- RIVALS-inspired pace: faster movement (9 m/s), higher jump, snappier acceleration; crouch while running = slide.
+- Shot effects: glowing tracers with a white-hot core, bigger muzzle flashes (also on other players), sparks and dust on impact, view kick, an elimination burst.
+- Online server ready to deploy: render.yaml (Render free plan) and Upstash Redis storage so credits/XP survive restarts; the online server is listed in the web build, static site, APK and desktop app (shared/servers.js).
+- 12 characters in a 4x3 picker: soldiers (2 men, 2 women), civilian women (Mei, Noa, Shira, Emma), civilian men (Andre, Leo, Eli, Daniel).
+- Removed the team armband ring from the arm; trigger finger hooks through the guard.
+
 ## 2026-10-29 (0.9.0)
 - Stances: crouch (C / 🧎) and prone with crawling (Z / ⤓); lower eye height, slower movement and smaller hitboxes, checked on the server (standing up needs headroom). Space stands up.
 - Tactical posture for every player: knees bent, torso leaning into the weapon; crouch-walk via leg IK; prone body with raised chest and stretched legs.

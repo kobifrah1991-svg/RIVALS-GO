@@ -1,26 +1,57 @@
 // Economy service: accounts, XP, credits, inventory and purchases (PROJECT_PLAN stage E).
 // The server is the only place balances change; clients only send requests.
-// Storage is a JSON file written atomically (temp file + rename) — fine for a small server;
-// move to a real database before scaling past a single machine.
+// Storage: a JSON file written atomically (temp file + rename). On hosts whose disk is wiped on every
+// restart (free cloud plans), set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN and accounts are
+// also kept in an Upstash Redis database (free tier, plain HTTPS), loaded at start and saved on change.
 import fs from 'node:fs';
 import path from 'node:path';
 import { SHOP, SLOTS, ECONOMY, itemById } from './shared/shop.js';
 
 const MAX_GRANT = 10000;
 
-export function createEconomy({ dataDir }) {
+// Optional remote copy in Upstash Redis (REST API). Returns null when not configured.
+function redisStore(env = process.env) {
+  const url = env.UPSTASH_REDIS_REST_URL, token = env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  const KEY = env.ACCOUNTS_KEY || 'arena-rush:accounts';
+  const call = async (body) => {
+    const r = await fetch(url.replace(/\/$/, ''), { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('Upstash ' + r.status);
+    return (await r.json()).result;
+  };
+  return {
+    load: async () => { const v = await call(['GET', KEY]); return v ? JSON.parse(v) : null; },
+    save: (data) => call(['SET', KEY, JSON.stringify(data)]),
+  };
+}
+
+export function createEconomy({ dataDir, remote = redisStore() }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const file = path.join(dataDir, 'accounts.json');
   let accounts = {};
   try { accounts = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first run */ }
+  // With a remote store, its copy wins (the local disk may have been wiped by a redeploy)
+  const ready = remote
+    ? remote.load().then((data) => { if (data) accounts = data; console.log('Accounts loaded from Upstash:', Object.keys(accounts).length); })
+      .catch((e) => console.error('Upstash load failed, using local file:', e.message))
+    : Promise.resolve();
 
-  let saveTimer = null;
+  let saveTimer = null, remoteBusy = false, remoteAgain = false;
+  async function pushRemote() {
+    if (!remote) return;
+    if (remoteBusy) { remoteAgain = true; return; } // one write at a time, the latest state wins
+    remoteBusy = true;
+    try { await remote.save(accounts); } catch (e) { console.error('Upstash save failed:', e.message); }
+    remoteBusy = false;
+    if (remoteAgain) { remoteAgain = false; pushRemote(); }
+  }
   function saveNow() {
     clearTimeout(saveTimer);
     saveTimer = null;
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(accounts));
     fs.renameSync(tmp, file); // atomic replace: a crash never leaves a half-written file
+    pushRemote();
   }
   const saveSoon = () => { if (!saveTimer) saveTimer = setTimeout(saveNow, 300); };
 
@@ -110,5 +141,5 @@ export function createEconomy({ dataDir }) {
     return true;
   }
 
-  return { accountId, get, profile, cosmetics, award, buy, equip, grant, catalog: SHOP, flush: saveNow };
+  return { accountId, get, profile, cosmetics, award, buy, equip, grant, catalog: SHOP, flush: saveNow, ready, storage: remote ? 'upstash' : 'file' };
 }

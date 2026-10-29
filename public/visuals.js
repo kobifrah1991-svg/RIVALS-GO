@@ -662,18 +662,6 @@ export function buildSoldier(color, seed, characterId, cosmetics = {}) {
     return f;
   };
   bones.rFingers = fingers(bones.rHand); bones.lFingers = fingers(bones.lHand);
-  // Team-coloured glowing armband so players are easy to tell apart
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.014, 6, 16), new THREE.MeshBasicMaterial({ color }));
-  if (bones.lArm) {
-    model.updateMatrixWorld(true);
-    const ws = bones.lArm.getWorldScale(new THREE.Vector3());
-    bones.lArm.add(band);
-    band.scale.setScalar(1 / ws.x);           // same world size whatever the rig's units
-    band.rotation.y = Math.PI / 2;            // ring around the upper arm (bone axis is X on Biped, Y on Mixamo)
-    const fore = bones.lFore?.position;
-    if (fore) band.position.copy(fore).multiplyScalar(0.35);
-  }
-
   const mixer = new THREE.AnimationMixer(model);
   // Find clips by name, tolerating other naming (e.g. "idle", "Armature|Run")
   const own = def.anims ? animSets.get(JSON.stringify(def.anims)) : null;
@@ -695,7 +683,7 @@ export function buildSoldier(color, seed, characterId, cosmetics = {}) {
   const fore = new THREE.Object3D(); aim.add(fore);
   const rPole = new THREE.Object3D(); rPole.position.set(0.7, -0.7, 0.3); aim.add(rPole);
   const lPole = new THREE.Object3D(); lPole.position.set(-0.6, -0.8, -0.1); aim.add(lPole);
-  const c = { root, body, aim, aimY: aim.position.y, scale: (def.height || 1.8) / 1.8, gunMount, neck: new THREE.Group(), mixer, actions, bones, grip, fore, rPole, lPole, band, soldier: true, hold: null,
+  const c = { root, body, aim, aimY: aim.position.y, scale: (def.height || 1.8) / 1.8, gunMount, neck: new THREE.Group(), mixer, actions, bones, grip, fore, rPole, lPole, soldier: true, hold: null,
     stance: 0, crouchW: 0, proneW: 0 };
   setHold(c, 'rifle');
   return c;
@@ -881,7 +869,7 @@ function curlFingers(f, curl, trigger = false) {
   for (const j of f.joints) {
     let a = curl * (j.root ? 0.8 : 1);
     if (j.thumb) a = curl * (j.root ? 0.15 : 0.35);
-    else if (j.index && trigger) a = j.root ? 0.12 : 0.35;
+    else if (j.index && trigger) a = j.root ? 0.35 : 0.7; // hooked through the guard onto the trigger
     j.bone.rotation.z = a;
   }
 }
@@ -926,7 +914,6 @@ export function animate(c, speed, t, dt) {
 export function buildFirstPerson(characterId, cosmetics = {}, color = 0xffffff) {
   const c = buildSoldier(color, 0, characterId, cosmetics);
   c.root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
-  c.band.visible = false; // the team armband sits right in front of the camera in first person
   c.root.updateMatrixWorld(true);
   const headY = c.bones.head ? c.bones.head.getWorldPosition(new THREE.Vector3()).y : 1.65;
   if (c.bones.head) c.bones.head.scale.setScalar(0.001); // hides the head and helmet from the inside

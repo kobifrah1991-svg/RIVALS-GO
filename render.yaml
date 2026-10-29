@@ -1,0 +1,24 @@
+# Render Blueprint: one click deploys the game server (https://render.com/deploy?repo=https://github.com/kobifrah1991-svg/RIVALS-GO)
+# The free plan sleeps after ~15 minutes without players and wipes its disk on restart, so credits/XP are kept
+# in Upstash Redis (free) — paste its REST URL and token when Render asks. See docs/SERVER_SETUP.md.
+services:
+  - type: web
+    name: rivals-go
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: BOTS
+        value: "4"
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: ADMIN_CODE
+        generateValue: true
