@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MAP } from './shared/map.js';
 import { WEAPONS, WEAPON_ORDER } from './shared/weapons.js';
-import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles } from './shared/physics.js';
+import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles, stanceOf, canStance } from './shared/physics.js';
 import { buildArena, setupLighting, buildCharacter, buildGun, registerCharacters, loadCharacter, loadAnimations, characterLoaded, buildSoldier, soldierReady, animate, loadWeapons, muzzleDistance, setHold, buildFirstPerson, updateFirstPerson } from './visuals.js';
 import { CHARACTERS, characterById } from './shared/characters.js';
 import { t, LANGS, getLang, setLang, detectLang } from './shared/i18n.js';
@@ -109,6 +109,7 @@ const me = {
   id: null, color: 0xffffff, p: [0, 0, 0], v: [0, 0, 0], onGround: true, yaw: 0, pitch: 0,
   alive: false, hp: 100, weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: 0, ads: false,
   kills: 0, deaths: 0, heads: 0, streak: 0,
+  stance: 0, eyeH: PLAYER.eye, // 0 standing, 1 crouching, 2 prone; eyeH eases toward the stance's eye height
 };
 for (const k of WEAPON_ORDER) me.ammo[k] = WEAPONS[k].mag;
 const remotes = new Map(); // id -> {group, buf, name, ...}
@@ -250,6 +251,7 @@ function updateRemotes(now, dt) {
     r.arm.rotation.x = s.pitch;
     const w = b[b.length - 1].w;
     if (w !== r.weapon) { for (const k in r.guns) r.guns[k].visible = k === w; r.weapon = w; setHold(r.char, w); }
+    r.char.stance = b[b.length - 1].st || 0;
     animate(r.char, r.speed, now / 1000, dtFrame);
     r.shield.visible = !!b[b.length - 1].sp;
   }
@@ -537,7 +539,7 @@ function tryFire(now) {
   if (moving) spread += w.spread * 0.4;
   if (!me.onGround) spread += w.spread;
   if (me.weapon === 'sniper' && !me.ads) spread = Math.max(spread, 0.06);
-  const o = [me.p[0], me.p[1] + PLAYER.eye, me.p[2]];
+  const o = [me.p[0], me.p[1] + stanceOf(me.stance).eye, me.p[2]];
   const dirs = [];
   for (let i = 0; i < w.pellets; i++) {
     const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
@@ -551,7 +553,7 @@ function tryFire(now) {
     let dist = rayWorld(o, d, MAP.boxes, w.range), hitPlayer = false;
     for (const r of remotes.values()) {
       if (!r.cur) continue;
-      const hb = hitboxes(r.cur.p);
+      const hb = hitboxes(r.cur.p, r.char.stance || 0, r.cur.yaw);
       for (const box of [hb.head, hb.body]) {
         const t = rayBox(o, d, box[0], box[1], dist);
         if (t !== null && t < dist) { dist = t; hitPlayer = true; }
@@ -577,7 +579,20 @@ function tryFire(now) {
 function muzzleWorld() {
   const fwd = dirFromAngles(me.yaw, me.pitch);
   const right = [Math.cos(me.yaw), 0, -Math.sin(me.yaw)];
-  return [me.p[0] + fwd[0] * 0.8 + right[0] * 0.2, me.p[1] + PLAYER.eye - 0.18 + fwd[1] * 0.8, me.p[2] + fwd[2] * 0.8 + right[2] * 0.2];
+  return [me.p[0] + fwd[0] * 0.8 + right[0] * 0.2, me.p[1] + me.eyeH - 0.18 + fwd[1] * 0.8, me.p[2] + fwd[2] * 0.8 + right[2] * 0.2];
+}
+
+// ======================= stance: stand / crouch / prone =======================
+// Lower stances are slower but smaller targets and steadier; getting up needs headroom
+function setStance(st) {
+  if (!me.alive || st === me.stance) return;
+  if (st < me.stance && !canStance(me.p, st, MAP.boxes)) { addChat({ sys: true, key: 'hud.noRoom' }); return; }
+  me.stance = st;
+  updateStanceHud();
+}
+function updateStanceHud() {
+  $('t-crouch').classList.toggle('on', me.stance === 1);
+  $('t-prone').classList.toggle('on', me.stance === 2);
 }
 
 // ======================= voice chat =======================
@@ -765,13 +780,13 @@ function onMessage(m) {
         if (s.id === me.id) { updateHp(s.hp); continue; }
         const r = remotes.get(s.id);
         if (!r) continue;
-        r.buf.push({ t: now, p: s.p, yaw: s.yaw, pitch: s.pitch, w: s.w, sp: s.sp });
+        r.buf.push({ t: now, p: s.p, yaw: s.yaw, pitch: s.pitch, w: s.w, sp: s.sp, st: s.st | 0 });
         r.lastSeen = now;
       }
       break;
     case 'spawn':
       me.p = m.p.slice(); me.v = [0, 0, 0]; me.yaw = m.yaw; me.pitch = 0;
-      me.alive = true; me.streak = 0; me.reloadUntil = 0;
+      me.alive = true; me.streak = 0; me.reloadUntil = 0; me.stance = 0; me.eyeH = PLAYER.eye; updateStanceHud();
       Object.assign(me.ammo, m.ammo);
       updateHp(100);
       $('death').classList.add('hidden');
@@ -1002,6 +1017,8 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'F2') { e.preventDefault(); toggleAdminPanel(); return; }
   if (e.code === 'KeyB') { toggleQuick(); return; }
   if (e.code === 'KeyV') { if (!e.repeat) setTalking(true); return; }
+  if (e.code === 'KeyC' || e.code === 'ControlLeft') { if (!e.repeat) setStance(me.stance === 1 ? 0 : 1); return; }
+  if (e.code === 'KeyZ') { if (!e.repeat) setStance(me.stance === 2 ? 0 : 2); return; }
   if (quickOpen && /^Digit[1-6]$/.test(e.code)) { sendQuick(Number(e.code.slice(5)) - 1); return; }
   if (e.code === 'Escape' && quickOpen) { toggleQuick(); return; }
   const slot = WEAPON_ORDER.find((k) => 'Digit' + WEAPONS[k].key === e.code);
@@ -1068,6 +1085,8 @@ function setupTouch() {
   hold('t-quick', toggleQuick);
   hold('t-score', () => $('scoreboard').classList.toggle('hidden'));
   hold('t-voice', () => setTalking(true), () => setTalking(false)); // hold to talk
+  hold('t-crouch', () => setStance(me.stance === 1 ? 0 : 1));
+  hold('t-prone', () => setStance(me.stance === 2 ? 0 : 2));
 }
 if (isTouch) setupTouch();
 
@@ -1456,8 +1475,8 @@ function refreshPreview() {
   $('char-loading').classList.toggle('hidden', ready);
   $('char-name').textContent = t('char.' + def.id);
   $('char-role').textContent = t('char.' + def.id + '.role');
-  $('char-kind').textContent = t(def.civ ? 'char.kindCivilian' : 'char.kindSoldier');
-  $('char-kind').classList.toggle('civ', !!def.civ);
+  $('char-kind').textContent = t('char.kind' + (def.civ ? 'Civilian' : 'Soldier') + (def.female ? 'F' : 'M'));
+  $('char-kind').className = 'kind ' + (def.civ ? 'civ' : 'mil') + (def.female ? ' f' : ' m');
   document.querySelectorAll('.char-card').forEach((el) => el.setAttribute('aria-checked', String(el.dataset.id === selectedChar)));
 }
 
@@ -1478,7 +1497,7 @@ for (const def of CHARACTERS) {
   b.className = 'char-card';
   b.dataset.id = def.id;
   b.setAttribute('role', 'radio');
-  if (def.civ) b.classList.add('civ');
+  b.classList.add(def.civ ? 'civ' : 'mil', def.female ? 'f' : 'm'); // circle colour: soldiers dark blue / purple, civilians blue / pink
   const av = document.createElement('i'); av.className = 'av'; av.setAttribute('aria-hidden', 'true');
   const label = document.createElement('span'); label.dataset.i18n = 'char.' + def.id; label.textContent = t('char.' + def.id);
   av.textContent = (def.female ? '♀' : '♂');
@@ -1524,14 +1543,17 @@ function frame(now) {
       if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
     }
     f += touchMove.f; s += touchMove.s;
+    // Jump from crouch or prone stands up first (if there is room)
+    if ((keys.has('Space') || wantJump) && me.stance) { setStance(0); keys.delete('Space'); wantJump = false; }
     step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads }, dt, MAP.boxes);
+    me.eyeH += (stanceOf(me.stance).eye - me.eyeH) * Math.min(1, dt * 10);
     wantJump = false;
     if (mouseDown) tryFire(now);
     const speed = Math.hypot(me.v[0], me.v[2]);
     bob += dt * speed * 1.6 * (me.onGround ? 1 : 0);
     if (now - lastSend > 50) {
       lastSend = now;
-      net({ t: 'state', p: me.p.map((n) => Math.round(n * 1000) / 1000), yaw: me.yaw, pitch: me.pitch, w: me.weapon });
+      net({ t: 'state', p: me.p.map((n) => Math.round(n * 1000) / 1000), yaw: me.yaw, pitch: me.pitch, w: me.weapon, st: me.stance });
     }
   }
 
@@ -1543,7 +1565,7 @@ function frame(now) {
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 14);
   camera.updateProjectionMatrix();
   if (me.alive) {
-    camera.position.set(me.p[0], me.p[1] + PLAYER.eye + Math.sin(bob * 2) * 0.03, me.p[2]);
+    camera.position.set(me.p[0], me.p[1] + me.eyeH + Math.sin(bob * 2) * 0.03, me.p[2]);
     camera.rotation.set(me.pitch + (Math.random() - 0.5) * shake * 0.02, me.yaw + (Math.random() - 0.5) * shake * 0.02, 0, 'YXZ');
   } else if (me.id) {
     // Death cam: rise up and look at the killer
