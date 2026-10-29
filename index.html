@@ -30,8 +30,10 @@
     <div id="announce"></div>
     <div id="center-msg"></div>
 
-    <div id="health"><div id="hp-bar"><div id="hp-fill"></div></div><span id="hp-text">100</span></div>
-    <div id="ammo"><div id="weapon-name"></div><div><span id="mag">30</span> <small>/ <span id="mag-max">30</span></small></div><div id="weapon-slots"></div></div>
+    <div id="health"><div id="armor" class="hidden"><div id="armor-fill"></div></div><div id="hp-bar"><div id="hp-fill"></div></div><span id="hp-text">100</span></div>
+    <div id="buffs"></div>
+    <div id="pickup-toast" class="hidden"></div>
+    <div id="ammo"><div id="weapon-name"></div><div><span id="mag">30</span> <small>/ <span id="mag-max">30</span></small></div><div id="weapon-slots"></div><div id="switch-hint"></div></div>
     <div id="streak"></div>
     <div id="voice-hud" class="hidden"><span class="mic">🎙</span> <span id="voice-text"></span></div>
     <div id="room-code" class="hidden"></div>
@@ -109,7 +111,7 @@
   <div id="menu">
     <div class="menu-shell">
       <header class="topnav">
-        <div class="brand"><h1>ARENA <span>RUSH</span></h1><small class="ver">v0.13</small></div>
+        <div class="brand"><h1>ARENA <span>RUSH</span></h1><small class="ver">v0.14</small></div>
         <div class="nav-side">
           <div id="profile" class="chip"></div>
           <button id="shop-btn" class="chip chip-btn" type="button">🛒 <span data-i18n="shop.open"></span></button>
@@ -145,6 +147,7 @@
 
         <div class="tab-page" data-page="play">
           <p class="hint" id="play-hint"></p>
+          <label class="practice-only"><span data-i18n="menu.difficulty"></span> <select id="difficulty"><option value="easy" data-i18n="diff.easy"></option><option value="normal" data-i18n="diff.normal"></option><option value="hard" data-i18n="diff.hard"></option><option value="insane" data-i18n="diff.insane"></option></select></label>
           <button id="play" type="button" data-i18n="menu.quickPlay"></button>
         </div>
 

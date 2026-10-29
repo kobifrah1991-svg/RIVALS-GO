@@ -81,6 +81,18 @@ for (const [x, z] of [[-20, 6], [-19, 7.6], [18, -6], [6, 24], [-6, -24], [22, -
 add([18, 0, 14], [19.5, 2.4, 15.5], 0xff6d00);
 add([-19.5, 0, -15.5], [-18, 2.4, -14], 0xff6d00);
 
+// Pickups: hearts in the corners, armor in the middle and the other corners, speed by the pads,
+// power (more damage) and ammo in the open, and the RPG on top of the towers — the reward for climbing.
+const pickups = [
+  { type: 'heart', p: [-25, 2, -25] }, { type: 'heart', p: [25, 2, 25] },
+  { type: 'heart', p: [29, 0, -29] }, { type: 'heart', p: [-29, 0, 29] },
+  { type: 'armor', p: [0, 3, 0] }, { type: 'armor', p: [-29, 0, -12] }, { type: 'armor', p: [29, 0, 12] },
+  { type: 'speed', p: [-20, 0, 3] }, { type: 'speed', p: [20, 0, -5] },
+  { type: 'power', p: [3, 0, 13] }, { type: 'power', p: [-3, 0, -13] },
+  { type: 'ammo', p: [12, 0, -14] }, { type: 'ammo', p: [-12, 0, 14] },
+  { type: 'rpg', p: [-16, 5.5, -26] }, { type: 'rpg', p: [16, 5.5, 26] },
+];
+
 boxes.ramps = ramps; // physics reads ramps and pads from the boxes array (see physics.js)
 boxes.pads = pads;
 
@@ -89,6 +101,7 @@ export const MAP = {
   boxes,
   ramps,
   pads,
+  pickups,
   spawns: [
     [-26, 0, 0], [26, 0, 0], [0, 0, -27], [0, 0, 27],
     [-24, 0, 24], [24, 0, -24], [-26, 3, -26], [25, 3, 25],

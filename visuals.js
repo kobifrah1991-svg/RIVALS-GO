@@ -499,6 +499,9 @@ export function applyCamo(group, camoId) {
 // (Prepared that way by the mini-cry project from CC0 sources; see models/CREDITS.md.)
 const WEAPON_MODELS = {
   rifle: { file: 'rifle.glb' },
+  m4: { file: 'm4.glb' },
+  smg: { file: 'smg.glb' },
+  rpg: { file: 'rpg.glb' },
   shotgun: { file: 'shotgun.glb' },
   sniper: { file: 'sniper.glb' },
   pistol: { file: 'pistol.glb' },
@@ -751,6 +754,11 @@ const R_GRIP = { rOff: [0.01, 0.04, 0.12], rDir: [0, -0.6, -0.8], rPalm: [-1, 0,
 const SUPPORT = { lDir: [0.3, 0.3, -0.9], lPalm: [0.35, 1, 0], curl: 1.15 };
 const HOLD_DEFS = {
   rifle: { ...R_GRIP, ...SUPPORT, gun: [0.14, -0.08, -0.24], lOff: [-0.005, 0.035, -0.21], blade: -0.5 },
+  m4: { ...R_GRIP, ...SUPPORT, gun: [0.14, -0.08, -0.24], lOff: [-0.005, 0.035, -0.24], blade: -0.5 },
+  // SMG: compact, held a little further out, support hand close to the grip
+  smg: { ...R_GRIP, ...SUPPORT, gun: [0.14, -0.07, -0.3], lOff: [-0.005, 0.01, -0.16], blade: -0.42 },
+  // RPG: tube resting on the right shoulder, left hand on the front grip
+  rpg: { ...R_GRIP, ...SUPPORT, gun: [0.13, -0.05, -0.22], lOff: [0, 0.01, -0.2], blade: -0.3 },
   shotgun: { ...R_GRIP, ...SUPPORT, gun: [0.14, -0.07, -0.2], lOff: [-0.005, 0.025, -0.33], blade: -0.6 },
   sniper: { ...R_GRIP, ...SUPPORT, gun: [0.14, -0.05, -0.22], lOff: [-0.005, 0.03, -0.26], blade: -0.55 },
   // pistol: both arms forward, the left hand wraps around the right (a "teacup"-free two-hand grip)

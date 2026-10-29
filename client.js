@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MAP } from './shared/map.js';
-import { WEAPONS, WEAPON_ORDER } from './shared/weapons.js';
+import { WEAPONS, WEAPON_ORDER, LOADOUT } from './shared/weapons.js';
 import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles, stanceOf, canStance } from './shared/physics.js';
 import { buildArena, animateArena, setupLighting, buildCharacter, buildGun, registerCharacters, loadCharacter, loadAnimations, characterLoaded, buildSoldier, soldierReady, animate, loadWeapons, muzzleDistance, setHold, buildFirstPerson, updateFirstPerson } from './visuals.js';
 import { CHARACTERS, characterById } from './shared/characters.js';
@@ -94,6 +94,8 @@ function blip(freq, dur = 0.08, type = 'square', vol = 0.15, delay = 0) {
 const sfx = {
   swing: () => { if (!actx) return; const t0 = actx.currentTime; const src = actx.createBufferSource(); src.buffer = noise; const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(3000, t0 + 0.15); const g = actx.createGain(); g.gain.setValueAtTime(0.25, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18); src.connect(f).connect(g).connect(actx.destination); src.start(t0, 0, 0.2); },
   pad: () => { blip(220, 0.25, 'sine', 0.2); blip(660, 0.18, 'triangle', 0.12, 0.05); },
+  pickup: () => { blip(880, 0.07, 'sine', 0.15); blip(1320, 0.1, 'sine', 0.13, 0.06); },
+  boom: (vol = 1) => { if (!actx) return; const t0 = actx.currentTime; const src = actx.createBufferSource(); src.buffer = noise; const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(60, t0 + 0.9); const g = actx.createGain(); g.gain.setValueAtTime(0.6 * vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 1); src.connect(f).connect(g).connect(actx.destination); src.start(t0, 0, 1); },
   slide: () => { if (!actx) return; const t0 = actx.currentTime; const src = actx.createBufferSource(); src.buffer = noise; const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(1800, t0); f.frequency.exponentialRampToValueAtTime(300, t0 + 0.5); const g = actx.createGain(); g.gain.setValueAtTime(0.18, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55); src.connect(f).connect(g).connect(actx.destination); src.start(t0, 0, 0.6); },
   hit: () => blip(1400, 0.05, 'square', 0.12),
   head: () => { blip(1900, 0.06, 'square', 0.14); blip(2500, 0.08, 'square', 0.12, 0.05); },
@@ -115,7 +117,11 @@ const me = {
   kills: 0, deaths: 0, heads: 0, streak: 0,
   stance: 0, eyeH: PLAYER.eye, // 0 standing, 1 crouching, 2 prone; eyeH eases toward the stance's eye height
 };
-for (const k of WEAPON_ORDER) me.ammo[k] = WEAPONS[k].mag;
+for (const k of LOADOUT) me.ammo[k] = WEAPONS[k].mag;
+// Armor, timed boosts and the special weapon, as told by the game (times are local performance.now() ends)
+const buffs = { armor: 0, speedUntil: 0, powerUntil: 0, special: null };
+let lastWeapon = 'pistol';
+const hasWeapon = (k) => !WEAPONS[k].pickupOnly || (buffs.special?.w === k && performance.now() < buffs.special.until);
 const remotes = new Map(); // id -> {group, buf, name, ...}
 let roster = [];
 let matchInfo = { state: 'playing', endsAt: 0 };
@@ -397,11 +403,15 @@ function updateWeaponHud() {
   $('mag-max').textContent = w.mag;
   $('weapon-slots').innerHTML = '';
   for (const k of WEAPON_ORDER) {
-    const s = document.createElement('span');
+    if (!hasWeapon(k)) continue;
+    const s = document.createElement('button');
+    s.type = 'button';
     s.textContent = WEAPONS[k].key + ' ' + t('weapon.' + k);
-    if (k === me.weapon) s.className = 'on';
+    s.className = (k === me.weapon ? 'on' : '') + (WEAPONS[k].pickupOnly ? ' special' : '');
+    s.addEventListener('mousedown', (e) => { e.stopPropagation(); switchWeapon(k); });
     $('weapon-slots').appendChild(s);
   }
+  $('switch-hint').textContent = isTouch ? '' : t('hud.switchHint');
 }
 function updateHp(hp) {
   me.hp = hp;
@@ -531,7 +541,8 @@ $('chat-input').addEventListener('keydown', (e) => {
 
 // ======================= combat (client side) =======================
 function switchWeapon(k) {
-  if (!WEAPONS[k] || k === me.weapon) return;
+  if (!WEAPONS[k] || k === me.weapon || !hasWeapon(k)) return;
+  lastWeapon = me.weapon;
   me.weapon = k;
   me.reloadUntil = 0;
   me.lastShot = performance.now() - 200; // short equip delay
@@ -539,12 +550,13 @@ function switchWeapon(k) {
   updateWeaponHud();
 }
 function cycleWeapon(dir) {
-  const i = WEAPON_ORDER.indexOf(me.weapon);
-  switchWeapon(WEAPON_ORDER[(i + dir + WEAPON_ORDER.length) % WEAPON_ORDER.length]);
+  const owned = WEAPON_ORDER.filter(hasWeapon);
+  const i = owned.indexOf(me.weapon);
+  switchWeapon(owned[(i + dir + owned.length) % owned.length]);
 }
 function reload() {
   const w = WEAPONS[me.weapon];
-  if (w.melee || !me.alive || performance.now() < me.reloadUntil || me.ammo[me.weapon] >= w.mag) return;
+  if (w.melee || w.pickupOnly || !me.alive || performance.now() < me.reloadUntil || me.ammo[me.weapon] >= w.mag) return;
   me.reloadUntil = performance.now() + w.reload * 1000;
   const k = me.weapon;
   net({ t: 'reload', w: k });
@@ -645,6 +657,99 @@ function updateStanceHud() {
   $('t-prone').classList.toggle('on', me.stance === 2);
 }
 
+// ======================= pickups, armor and boosts =======================
+// The game owns the items (server or practice host); this draws them, plays effects and shows your boosts.
+const itemMeshes = new Map(); // id -> { g, type, ready }
+const ITEM_LOOK = { heart: 0xff2d55, armor: 0x2f80ff, speed: 0xffd400, power: 0xb04cff, ammo: 0x2ee59d, rpg: 0xff6d00 };
+function itemShape(type) {
+  const c = ITEM_LOOK[type], mat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, roughness: 0.35, metalness: 0.2 });
+  const g = new THREE.Group();
+  if (type === 'heart') {
+    const sh = new THREE.Shape(); sh.moveTo(0, -0.28); sh.bezierCurveTo(-0.5, 0.05, -0.28, 0.42, 0, 0.18); sh.bezierCurveTo(0.28, 0.42, 0.5, 0.05, 0, -0.28);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.14, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03 }), mat); m.position.z = -0.07; g.add(m);
+  } else if (type === 'armor') {
+    const sh = new THREE.Shape(); sh.moveTo(0, 0.32); sh.lineTo(0.28, 0.22); sh.lineTo(0.24, -0.08); sh.quadraticCurveTo(0.14, -0.26, 0, -0.34); sh.quadraticCurveTo(-0.14, -0.26, -0.24, -0.08); sh.lineTo(-0.28, 0.22); sh.lineTo(0, 0.32);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.1, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02 }), mat); m.position.z = -0.05; g.add(m);
+  } else if (type === 'speed') {
+    const sh = new THREE.Shape(); sh.moveTo(0.06, 0.34); sh.lineTo(-0.16, 0); sh.lineTo(0.0, 0); sh.lineTo(-0.08, -0.34); sh.lineTo(0.18, 0.06); sh.lineTo(0.02, 0.06); sh.lineTo(0.06, 0.34);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }), mat); m.position.z = -0.04; g.add(m);
+  } else if (type === 'power') {
+    g.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.26), mat));
+  } else if (type === 'ammo') {
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.3), new THREE.MeshStandardMaterial({ color: 0x3d5a3a, roughness: 0.7 })));
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.32), mat); g.add(band);
+  } else if (type === 'rpg') {
+    const gun = gunModel('rpg'); gun.rotation.y = Math.PI / 2; gun.scale.setScalar(1.1); g.add(gun);
+  }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.03, 8, 32), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8 }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = -0.62;
+  const root = new THREE.Group(); root.add(g, ring);
+  return { root, spin: g, ring };
+}
+function setItems(list) {
+  for (const [id, type, p, ready] of list) {
+    let it = itemMeshes.get(id);
+    if (!it) { it = { ...itemShape(type), type }; it.root.position.set(p[0], p[1] + 0.8, p[2]); scene.add(it.root); itemMeshes.set(id, it); }
+    it.ready = !!ready;
+    it.spin.visible = it.ready;
+    it.ring.material.opacity = it.ready ? 0.8 : 0.18; // a faint ring shows where it will come back
+  }
+}
+function animateItems(t) {
+  for (const it of itemMeshes.values()) {
+    it.spin.rotation.y = t * 1.8;
+    it.spin.position.y = Math.sin(t * 2.2 + it.root.position.x) * 0.1;
+  }
+}
+function itemTakenFx(id) { const it = itemMeshes.get(id); if (it) sparks(it.root.position.toArray(), ITEM_LOOK[it.type], 10); }
+function onBuffs(m) {
+  const now = performance.now(), had = { ...buffs, special: buffs.special && { ...buffs.special } };
+  buffs.armor = m.armor;
+  buffs.speedUntil = m.speed ? now + m.speed : 0;
+  buffs.powerUntil = m.power ? now + m.power : 0;
+  buffs.special = m.special ? { w: m.special.w, until: now + m.special.ms } : null;
+  if (m.special) me.ammo[m.special.w] = m.special.ammo;
+  updateArmor();
+  // Toasts for what was just picked up
+  if (m.armor > had.armor) { toast(t('hud.gotArmor'), '#4d9dff'); sfx.pickup(); }
+  if (m.speed && !(had.speedUntil > now)) { toast(t('hud.gotSpeed'), '#ffd400'); sfx.pickup(); }
+  if (m.power && !(had.powerUntil > now)) { toast(t('hud.gotPower'), '#c36bff'); sfx.pickup(); }
+  if (m.special && !had.special) { toast(t('hud.gotRpg'), '#ff8a3d'); sfx.pickup(); switchWeapon(m.special.w); }
+  if (!m.special && had.special && me.weapon === had.special.w) { me.weapon = ''; switchWeapon(lastWeapon !== had.special.w ? lastWeapon : 'rifle'); }
+  updateWeaponHud();
+}
+function updateArmor() {
+  $('armor-fill').style.width = Math.max(0, buffs.armor) + '%';
+  $('armor').classList.toggle('hidden', !(buffs.armor > 0));
+}
+let buffHudAt = 0;
+function updateBuffHud(now) {
+  if (now - buffHudAt < 200) return;
+  buffHudAt = now;
+  const chips = [];
+  if (buffs.speedUntil > now) chips.push(['speed', '⚡', Math.ceil((buffs.speedUntil - now) / 1000)]);
+  if (buffs.powerUntil > now) chips.push(['power', '💥', Math.ceil((buffs.powerUntil - now) / 1000)]);
+  if (buffs.special && buffs.special.until > now) chips.push(['rpg', 'RPG', Math.ceil((buffs.special.until - now) / 1000)]);
+  $('buffs').innerHTML = chips.map(([k, icon, sec]) => `<span class="buff ${k}">${icon} ${sec}s</span>`).join('');
+  if (buffs.special && buffs.special.until <= now && hasWeapon(buffs.special.w) === false && me.weapon === buffs.special.w) switchWeapon('rifle');
+}
+let toastTimer = 0;
+function toast(text, color) {
+  const el = $('pickup-toast');
+  el.textContent = text; el.style.color = color; el.classList.remove('hidden');
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), 1600);
+}
+// Rocket explosion: flash, fireball, sparks, shake when close
+function explosion(at) {
+  flashAt(at, 4, 0xffb347);
+  for (let i = 0; i < 3; i++) setTimeout(() => puff(at, i ? 0x555555 : 0xff7a1a, 0.5 + i * 0.3), i * 60);
+  sparks(at, 0xffa000, 18);
+  const d = Math.hypot(at[0] - me.p[0], at[1] - me.p[1], at[2] - me.p[2]);
+  shake = Math.min(1.2, shake + Math.max(0, 1 - d / 15));
+  sfx.boom(Math.max(0.15, 1 - d / 40));
+}
+
 // ======================= voice chat =======================
 const voice = createVoice((to, data) => net({ t: 'rtc', to, data }));
 let voiceOn = store.get('voice', true), talking = false;
@@ -665,7 +770,7 @@ function updateVoiceHud() {
   $('voice-text').textContent = (talking ? t('voice.talking') : t(isTouch ? 'voice.holdTouch' : 'voice.holdKey')) + ' · 🔊 ' + voice.connected() + '/' + others;
 }
 setInterval(() => { if (me.id) updateVoiceHud(); }, 1000);
-if (new URLSearchParams(location.search).has('debug')) window.arenaDebug = { voice, me, remotes };
+if (new URLSearchParams(location.search).has('debug')) window.arenaDebug = { voice, me, remotes, items: itemMeshes, buffs };
 async function setTalking(on) {
   if (on === talking || !me.id || lobby?.offline || !voiceOn) return;
   talking = on;
@@ -698,7 +803,7 @@ class LocalSocket {
     this.readyState = 0;
     import('./shared/game.js').then((game) => {
       const toClient = { readyState: 1, send: (s) => setTimeout(() => this.onmessage?.({ data: s }), 0), close() {} };
-      const match = game.createGame();
+      const match = game.createGame({ difficulty: store.get('difficulty', 'normal') });
       match.start();
       this.conn = match.connect(toClient);
       this.readyState = 1;
@@ -808,6 +913,7 @@ function onMessage(m) {
       reconnectTries = 0;
       me.id = m.id; me.color = m.color;
       matchInfo = m.match; killLimit = m.killLimit; quickChat = m.quick; gameMode = m.mode || 'ffa';
+      if (m.items) setItems(m.items);
       $('menu').classList.add('hidden');
       $('hud').classList.remove('hidden');
       if (matchInfo.state === 'lobby') $('lobby').classList.remove('hidden');
@@ -837,6 +943,7 @@ function onMessage(m) {
     case 'spawn':
       me.p = m.p.slice(); me.v = [0, 0, 0]; me.yaw = m.yaw; me.pitch = 0;
       me.alive = true; me.streak = 0; me.reloadUntil = 0; me.stance = 0; me.eyeH = PLAYER.eye; updateStanceHud();
+      buffs.armor = 0; buffs.speedUntil = 0; buffs.powerUntil = 0; buffs.special = null; updateArmor(); if (WEAPONS[me.weapon].pickupOnly) { me.weapon = ''; switchWeapon('rifle'); }
       Object.assign(me.ammo, m.ammo);
       updateHp(PLAYER.maxHp);
       $('death').classList.add('hidden');
@@ -864,6 +971,7 @@ function onMessage(m) {
     }
     case 'hurt': {
       updateHp(m.hp);
+      if (Number.isFinite(m.armor)) { buffs.armor = m.armor; updateArmor(); }
       lastHurtFrom = m.from;
       sfx.hurt();
       vibrate(40);
@@ -873,6 +981,11 @@ function onMessage(m) {
       break;
     }
     case 'kill': onKillMsg(m); break;
+    case 'heal': updateHp(m.hp); toast(t('hud.gotHeart'), '#ff4d6d'); sfx.pickup(); break;
+    case 'refill': Object.assign(me.ammo, m.ammo); updateWeaponHud(); toast(t('hud.gotAmmo'), '#69f0ae'); sfx.pickup(); break;
+    case 'buffs': onBuffs(m); break;
+    case 'items': setItems(m.items); if (m.took && m.took.by !== me.id) itemTakenFx(m.took.id); break;
+    case 'boom': explosion(m.at); break;
     case 'leave': { const r = remotes.get(m.id); if (r) { scene.remove(r.group); remotes.delete(m.id); } break; }
     case 'chat': addChat(m); break;
     case 'match': onMatch(m); break;
@@ -1099,6 +1212,7 @@ document.addEventListener('keydown', (e) => {
   if (slot) { switchWeapon(slot); return; }
   if (e.code === 'KeyR') reload();
   if (e.code === 'KeyQ') cycleWeapon(1);
+  if (e.code === 'KeyX') switchWeapon(lastWeapon); // quick swap to the previous weapon
   keys.add(e.code);
 });
 document.addEventListener('keyup', (e) => {
@@ -1382,6 +1496,8 @@ for (const sel of document.querySelectorAll('.lang-select')) {
 $('name').value = store.get('name', '');
 $('sens').value = sens;
 $('sens').addEventListener('input', (e) => { sens = Number(e.target.value); store.set('sens', sens); });
+$('difficulty').value = store.get('difficulty', 'normal');
+$('difficulty').addEventListener('change', (e) => store.set('difficulty', e.target.value));
 $('gyro-on').checked = gyro.on;
 $('gyro-on').addEventListener('change', (e) => { gyro.on = e.target.checked; store.set('gyro', gyro.on); if (gyro.on) gyro.ask(); });
 $('gyro-sens').value = gyro.sens;
@@ -1513,6 +1629,7 @@ function renderServers() {
   // Online-only controls follow the selected server
   const online = !current.offline;
   document.querySelectorAll('.online-only').forEach((el) => el.classList.toggle('hidden', !online));
+  document.querySelectorAll('.practice-only').forEach((el) => el.classList.toggle('hidden', online));
   $('play').textContent = t(online ? 'menu.quickPlay' : 'menu.startPractice');
   $('play-hint').textContent = t(online ? 'menu.hintOnline' : 'menu.hintPractice');
   const st = serverState.get(current.id);
@@ -1683,7 +1800,7 @@ function frame(now) {
     }
     // Jump from crouch or prone stands up first (if there is room)
     if ((keys.has('Space') || wantJump) && me.stance) { setStance(0); keys.delete('Space'); wantJump = false; }
-    step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads, slide: wantSlide }, dt, MAP.boxes);
+    step(me, { f, s, jump: keys.has('Space') || wantJump, yaw: me.yaw, ads: me.ads, slide: wantSlide, boost: now < buffs.speedUntil ? 1.3 : 1 }, dt, MAP.boxes);
     wantSlide = false;
     if (me.padded) { me.padded = false; sfx.pad(); vibrate(25); }
     me.eyeH += (stanceOf(me.stance).eye - me.eyeH) * Math.min(1, dt * 10);
@@ -1747,6 +1864,8 @@ function frame(now) {
   if (reloading) $('mag').textContent = '…';
 
   animateArena(now / 1000);
+  animateItems(now / 1000);
+  updateBuffHud(now);
   updateRemotes(now, dt);
   updateEffects(dt);
   updateDamageNumbers(dt);
