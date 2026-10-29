@@ -4,11 +4,11 @@
 import m0 from '../public/models/characters/Female_Adult_03.glb';
 import m1 from '../public/models/characters/Female_Adult_05.glb';
 import m2 from '../public/models/characters/Female_Adult_08.glb';
-import m3 from '../public/models/characters/Female_Adult_12.glb';
-import m4 from '../public/models/characters/Male_Adult_04.glb';
-import m5 from '../public/models/characters/Male_Adult_09.glb';
-import m6 from '../public/models/characters/Male_Adult_14.glb';
-import m7 from '../public/models/characters/Military_Female_01.glb';
+import m3 from '../public/models/characters/Male_Adult_04.glb';
+import m4 from '../public/models/characters/Male_Adult_09.glb';
+import m5 from '../public/models/characters/Male_Adult_14.glb';
+import m6 from '../public/models/characters/Military_Female_01.glb';
+import m7 from '../public/models/characters/Military_Female_02.glb';
 import m8 from '../public/models/characters/Military_Male_01.glb';
 import m9 from '../public/models/characters/Military_Male_02.glb';
 import m10 from '../public/models/anims/f_idle_neutral_01.glb';
@@ -28,11 +28,11 @@ window.ARENA_MODELS = {
   'characters/Female_Adult_03.glb': m0,
   'characters/Female_Adult_05.glb': m1,
   'characters/Female_Adult_08.glb': m2,
-  'characters/Female_Adult_12.glb': m3,
-  'characters/Male_Adult_04.glb': m4,
-  'characters/Male_Adult_09.glb': m5,
-  'characters/Male_Adult_14.glb': m6,
-  'characters/Military_Female_01.glb': m7,
+  'characters/Male_Adult_04.glb': m3,
+  'characters/Male_Adult_09.glb': m4,
+  'characters/Male_Adult_14.glb': m5,
+  'characters/Military_Female_01.glb': m6,
+  'characters/Military_Female_02.glb': m7,
   'characters/Military_Male_01.glb': m8,
   'characters/Military_Male_02.glb': m9,
   'anims/f_idle_neutral_01.glb': m10,

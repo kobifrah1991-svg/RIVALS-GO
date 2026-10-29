@@ -2,7 +2,7 @@
 // Runs inside the Node server (server.js, one instance per room) and, for offline practice, inside the browser.
 import { MAP } from './map.js';
 import { WEAPONS, WEAPON_ORDER, damageAt } from './weapons.js';
-import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles, collides } from './physics.js';
+import { PLAYER, step, rayBox, rayWorld, hitboxes, dirFromAngles, collides, stanceOf, canStance } from './physics.js';
 import { filterChat, cleanName, QUICK_CHAT } from './chatfilter.js';
 import { CHARACTERS, characterById } from './characters.js';
 import { itemById } from './shop.js';
@@ -45,7 +45,7 @@ export function createGame(opts = {}) {
       color: COLORS.find((c) => !used.has(c)) ?? COLORS[nextId % COLORS.length],
       p: [0, 0, 0], v: [0, 0, 0], onGround: true, yaw: 0, pitch: 0,
       hp: PLAYER.maxHp, alive: false, respawnAt: Date.now() + 500, protectUntil: 0,
-      weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: {}, lastHurt: 0,
+      stance: 0, weapon: 'rifle', ammo: {}, reloadUntil: 0, lastShot: {}, lastHurt: 0,
       kills: 0, deaths: 0, streak: 0, heads: 0, team: null, ready: false,
       history: [], rtt: 80, lastState: Date.now(), chatTimes: [], strikes: 0, mutedUntil: 0,
       ai: bot ? { wp: null, stuck: 0, target: null, seenAt: 0, strafe: 1, strafeT: 0, jumpT: 0, aimErr: 0 } : null,
@@ -122,7 +122,7 @@ export function createGame(opts = {}) {
     p.p = [s[0], s[1], s[2]]; p.v = [0, 0, 0];
     p.yaw = Math.atan2(s[0], s[2]); // face the centre
     p.pitch = 0;
-    p.hp = PLAYER.maxHp; p.alive = true; p.streak = 0;
+    p.hp = PLAYER.maxHp; p.alive = true; p.streak = 0; p.stance = 0;
     p.protectUntil = Date.now() + SPAWN_PROTECT * 1000;
     p.reloadUntil = 0; refill(p);
     p.history = [];
@@ -158,7 +158,7 @@ export function createGame(opts = {}) {
     shooter.protectUntil = 0; // firing ends spawn protection
 
     // The shot must start at the shooter's eye (small tolerance for latency)
-    const eye = [shooter.p[0], shooter.p[1] + PLAYER.eye, shooter.p[2]];
+    const eye = [shooter.p[0], shooter.p[1] + stanceOf(shooter.stance).eye, shooter.p[2]];
     const o = (Array.isArray(origin) && origin.length === 3 && origin.every(Number.isFinite) &&
       Math.hypot(origin[0] - eye[0], origin[1] - eye[1], origin[2] - eye[2]) < 2.5) ? origin : eye;
 
@@ -177,7 +177,7 @@ export function createGame(opts = {}) {
       const wall = rayWorld(o, d, MAP.boxes, w.range);
       let best = wall, hitT = null, head = false;
       for (const { t, pos } of targets) {
-        const hb = hitboxes(pos);
+        const hb = hitboxes(pos, t.stance, t.yaw);
         const th = rayBox(o, d, hb.head[0], hb.head[1], best);
         if (th !== null && th < best) { best = th; hitT = t; head = true; }
         const tb = rayBox(o, d, hb.body[0], hb.body[1], best);
@@ -207,13 +207,13 @@ export function createGame(opts = {}) {
     if (Number.isFinite(yaw)) attacker.yaw = yaw;
     if (Number.isFinite(pitch)) attacker.pitch = Math.max(-1.55, Math.min(1.55, pitch));
     const fwd = dirFromAngles(attacker.yaw, attacker.pitch);
-    const eye = [attacker.p[0], attacker.p[1] + PLAYER.eye, attacker.p[2]];
+    const eye = [attacker.p[0], attacker.p[1] + stanceOf(attacker.stance).eye, attacker.p[2]];
     const tHit = now - (attacker.bot ? 0 : Math.min(300, attacker.rtt / 2 + 100));
     let best = null, bestDist = w.range;
     for (const t of players.values()) {
       if (t === attacker || !t.alive || (M.teams && t.team === attacker.team)) continue;
       const pos = positionAt(t, tHit);
-      const c = [pos[0], pos[1] + 1.1, pos[2]];
+      const c = [pos[0], pos[1] + stanceOf(t.stance).height * 0.6, pos[2]];
       const d = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
       const dist = Math.hypot(d[0], d[1], d[2]);
       if (dist > bestDist + 0.4) continue; // body radius
@@ -437,6 +437,10 @@ export function createGame(opts = {}) {
           if (Number.isFinite(m.yaw)) me.yaw = m.yaw;
           if (Number.isFinite(m.pitch)) me.pitch = Math.max(-1.55, Math.min(1.55, m.pitch));
           if (WEAPONS[m.w]) me.weapon = m.w;
+          // Stance: crouching or lying down is always allowed; getting up needs headroom
+          if (m.st === 0 || m.st === 1 || m.st === 2) {
+            if (m.st >= me.stance || canStance(me.p, m.st, MAP.boxes)) me.stance = m.st;
+          }
           break;
         }
         case 'shoot':
@@ -567,7 +571,7 @@ export function createGame(opts = {}) {
       broadcast({
         t: 'snap', now,
         players: [...players.values()].filter((p) => p.alive).map((p) => ({
-          id: p.id, p: p.p.map((n) => Math.round(n * 100) / 100), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), w: p.weapon, hp: Math.ceil(p.hp), sp: now < p.protectUntil ? 1 : 0,
+          id: p.id, p: p.p.map((n) => Math.round(n * 100) / 100), yaw: +p.yaw.toFixed(3), pitch: +p.pitch.toFixed(3), w: p.weapon, hp: Math.ceil(p.hp), sp: now < p.protectUntil ? 1 : 0, st: p.stance,
         })),
       });
     }

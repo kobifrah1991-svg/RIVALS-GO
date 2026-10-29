@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-29 (0.9.0)
+- Stances: crouch (C / 🧎) and prone with crawling (Z / ⤓); lower eye height, slower movement and smaller hitboxes, checked on the server (standing up needs headroom). Space stands up.
+- Tactical posture for every player: knees bent, torso leaning into the weapon; crouch-walk via leg IK; prone body with raised chest and stretched legs.
+- Hands: shooting hand on the pistol grip with the index finger on the trigger and the thumb around the grip; support hand wraps the handguard / pump.
+- Roster: 2 male and 2 female soldiers (new Military_Female_02), 3 civilian men and 3 civilian women; names that match each look (Marcus, Diego, Sarah, Gabriela, Andre, Leo, Eli, Mei, Noa, Shira).
+- Picker colours: soldiers dark blue (men) / purple (women), civilians blue (men) / pink (women).
+- Hair textures: colour bled into transparent pixels (no dark fringes at the hairline), alpha-to-coverage edges.
+
 ## 2026-10-29 (0.8.1)
 - Moved to its own repository (RIVALS-GO); static site on the gh-pages branch.
 - Weapon holds measured from each model: left hand under the AK handguard, on the shotgun pump, under the rifle fore-end; two-hand pistol grip; one-hand machete.

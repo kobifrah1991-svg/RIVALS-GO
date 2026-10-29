@@ -10,7 +10,7 @@ All third-party models below allow use in a commercial game. Keep this file with
 | `characters/Female_Adult_03.glb` | Female_Adult_03 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
 | `characters/Female_Adult_05.glb` | Female_Adult_05 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
 | `characters/Female_Adult_08.glb` | Female_Adult_08 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
-| `characters/Female_Adult_12.glb` | Female_Adult_12 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
+| `characters/Military_Female_02.glb` | Military_Female_02 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
 | `characters/Male_Adult_04.glb` | Male_Adult_04 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
 | `characters/Male_Adult_09.glb` | Male_Adult_09 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
 | `characters/Male_Adult_14.glb` | Male_Adult_14 avatar | Microsoft (Rocketbox Avatar Library) | MIT | https://github.com/microsoft/Microsoft-Rocketbox |
