@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-29 (0.11.0)
+- RIVALS-style map traversal: walkable ramps (to the central platform and two new 5.5 m towers), six jump pads (~6 m launch, pulsing), climbing (jump into a ledge up to 2.4 m high to pull yourself up), crate stacks and catwalks to scramble up.
+- Higher jump (~1.8 m). Bots use the same ramps and pads.
+
 ## 2026-10-29 (0.10.0)
 - RIVALS-inspired pace: faster movement (9 m/s), higher jump, snappier acceleration; crouch while running = slide.
 - Shot effects: glowing tracers with a white-hot core, bigger muzzle flashes (also on other players), sparks and dust on impact, view kick, an elimination burst.

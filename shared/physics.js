@@ -6,7 +6,9 @@ export const PLAYER = {
   headBase: 1.4,   // body hitbox ends here, head hitbox starts
   speed: 9,        // fast, RIVALS-like movement
   adsSpeed: 5.4,
-  jump: 8.8,
+  jump: 9.4,       // ~1.8 m jump
+  padJump: 17,     // jump pads launch ~6 m up
+  climb: 2.4,      // ledges up to this high above the feet can be climbed (jump into them)
   gravity: 25,
   slideBoost: 1.45, // crouch while running: a short slide that keeps momentum
   slideTime: 0.7,
@@ -33,6 +35,23 @@ export function collides(x, y, z, boxes, h = PLAYER.height) {
   for (const b of boxes) if (overlaps(x, y, z, b, h)) return b;
   return null;
 }
+
+// Ramps (MAP.ramps, attached to the boxes array): walkable slopes {min, max, axis: 'x'|'z', up: 1|-1}.
+// The surface rises from min.y to max.y along `axis` in the `up` direction.
+function rampY(r, x, z) {
+  if (x < r.min[0] || x > r.max[0] || z < r.min[2] || z > r.max[2]) return -Infinity;
+  const a = r.axis === 'x' ? 0 : 2, v = a === 0 ? x : z;
+  let t = (v - r.min[a]) / (r.max[a] - r.min[a]);
+  if (r.up < 0) t = 1 - t;
+  return r.min[1] + t * (r.max[1] - r.min[1]);
+}
+export function floorAt(x, z, boxes) {
+  let y = -Infinity;
+  for (const r of boxes.ramps || []) y = Math.max(y, rampY(r, x, z));
+  return y;
+}
+// Jump pads (MAP.pads): {x, y, z, r}
+export const padAt = (p, boxes) => (boxes.pads || []).find((d) => Math.hypot(p[0] - d.x, p[2] - d.z) < d.r && Math.abs(p[1] - d.y) < 0.3);
 
 // Can a player at p rise to stance `to` (enough headroom)?
 export const canStance = (p, to, boxes) => !collides(p[0], p[1] + 0.01, p[2], boxes, stanceOf(to).height);
@@ -66,7 +85,11 @@ export function step(state, input, dt, boxes) {
     v[2] += (tz - v[2]) * Math.min(1, accel * dt);
   }
   if (input.jump && state.onGround && !state.stance) { v[1] = PLAYER.jump; state.onGround = false; }
+  // Jump pad: stepping on it launches you high (keeps your run-up speed)
+  if (state.onGround && padAt(p, boxes)) { v[1] = PLAYER.padJump; state.onGround = false; state.padded = true; }
   v[1] -= PLAYER.gravity * dt;
+  if (state.climbT > 0) state.climbT -= dt;
+  state.wall = null;
 
   // Sub-step to avoid tunnelling on frame hitches
   const n = Math.max(1, Math.ceil(dt / 0.02));
@@ -84,6 +107,23 @@ export function step(state, input, dt, boxes) {
       v[1] = 0;
     } else if (dy <= 0 && collides(p[0], p[1] - 0.05, p[2], boxes, H)) {
       state.onGround = true;
+    }
+    // Ramps: stand on the slope; while walking down, stay glued to it instead of hopping
+    const fy = floorAt(p[0], p[2], boxes);
+    if (fy > -Infinity && v[1] <= 0.01 && p[1] < fy + (state.wasGround ? 0.35 : 0.02) && p[1] > fy - 0.7) {
+      p[1] = fy; v[1] = 0; state.onGround = true;
+    }
+  }
+  state.wasGround = state.onGround;
+  // Climb: pressing forward into a ledge you can reach (jumping or in the air) pulls you up onto it
+  const w = state.wall;
+  if (w && !state.stance && !(state.climbT > 0) && (input.jump || !state.onGround) && (input.f || 0) > 0) {
+    const rise = w.max[1] - p[1];
+    const ahead = [p[0] - Math.sin(input.yaw) * 0.6, w.max[1] + 0.02, p[2] - Math.cos(input.yaw) * 0.6];
+    if (rise > PLAYER.stepUp && rise <= PLAYER.climb && !collides(ahead[0], ahead[1], ahead[2], boxes, H)) {
+      v[1] = Math.sqrt(2 * PLAYER.gravity * (rise + 0.3));
+      state.climbT = 0.6;
+      state.onGround = false;
     }
   }
   if (p[1] < -20) { p[1] = 2; v[1] = 0; } // safety net
@@ -103,6 +143,7 @@ function moveAxis(state, axis, d, boxes, H) {
   }
   p[axis] -= d;
   state.v[axis] = 0;
+  state.wall = hit; // remembered for climbing
 }
 
 // Ray vs AABB (slab method). Returns entry distance or null.
